@@ -14,50 +14,52 @@ module.exports = function rest(options) {
         }, 1000)
     });
 
-    this.add({ role: 'restRequest', cmd: 'getDevicesList' }, function (args, done) {
-        seneca.act({ role: 'coreRequest', cmd: 'getDevicesList' }, function (err, reply) {
+    this.add({ role: 'restRequest', cmd: 'getDevicesList' }, function (msg, done) {
+        console.log(msg);
+        seneca.act({ role: 'coreRequest', cmd: 'getDevicesList' }, msg, function (err, reply) {
             console.log(reply.result);
         })
         done(null, { result: 'dev1, dev2, dev3' })
     });
 
-    this.add({ role: 'restRequest', cmd: 'registerDevice' }, function (args, done) {
-        seneca.act({ role: 'coreRequest', cmd: 'registerDevice' }, function (err, reply) {
+    this.add({ role: 'restRequest', cmd: 'registerDevice' }, function (msg, done) {
+        seneca.act({ role: 'coreRequest', cmd: 'registerDevice'}, msg, function (err, reply) {
             console.log(reply.result);
         })
-        done(null, { result: 'new device' })
+        done(null, { id: reply.id,
+            result: reply.result })
     });
 
-    this.add({ role: 'restRequest', cmd: 'deleteDevice' }, function (args, done) {
-        seneca.act({ role: 'coreRequest', cmd: 'deleteDevice' }, function (err, reply) {
+    this.add({ role: 'restRequest', cmd: 'deleteDevice' }, function (msg, done) {
+        seneca.act({ role: 'coreRequest', cmd: 'deleteDevice' }, msg, function (err, reply) {
             console.log(reply.result);
         })
         done(null, { result: 'device deleted' })
     });
 
-    this.add({ role: 'restRequest', cmd: 'postDataPoint' }, function (args, done) {
-        seneca.act({ role: 'coreRequest', cmd: 'postDataPoint' }, function (err, reply) {
+    this.add({ role: 'restRequest', cmd: 'postDataPoint' }, function (msg, done) {
+        seneca.act({ role: 'coreRequest', cmd: 'postDataPoint' }, msg, function (err, reply) {
             console.log(reply.result);
         })
         done(null, { result: 'device posted a datapoint' })
     });
 
-    this.add({ role: 'restRequest', cmd: 'postDataToDevice' }, function (args, done) {
-        seneca.act({ role: 'coreRequest', cmd: 'postDataToDevice' }, function (err, reply) {
+    this.add({ role: 'restRequest', cmd: 'postDataToDevice' }, function (msg, done) {
+        seneca.act({ role: 'coreRequest', cmd: 'postDataToDevice' }, msg, function (err, reply) {
             console.log(reply.result);
         })
         done(null, { result: 'data to device through MQTT or WS' })
     });
 
-    this.add({ role: 'restRequest', cmd: 'postDataToDevice' }, function (args, done) {
-        seneca.act({ role: 'coreRequest', cmd: 'postDataToDevice' }, function (err, reply) {
+    this.add({ role: 'restRequest', cmd: 'postDataToDevice' }, function (msg, done) {
+        seneca.act({ role: 'coreRequest', cmd: 'postDataToDevice' }, msg, function (err, reply) {
             console.log(reply.result);
         })
         done(null, { result: 'data to device through MQTT or WS' })
     });
 
-    this.add({ role: 'restRequest', cmd: 'getDataPoints' }, function (args, done) {
-        seneca.act({ role: 'coreRequest', cmd: 'getDataPoints' }, function (err, reply) {
+    this.add({ role: 'restRequest', cmd: 'getDataPoints' }, function (msg, done) {
+        seneca.act({ role: 'coreRequest', cmd: 'getDataPoints' }, msg, function (err, reply) {
             console.log(reply.result);
         })
         done(null, { result: 'data to device through MQTT or WS' })

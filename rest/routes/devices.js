@@ -4,7 +4,7 @@ module.exports = [
         path: '/devices',
         handler: function (request, reply) {
             // Invoke a Seneca action using the request decoration
-            request.seneca.act({ role: 'restRequest', cmd: 'getDevicesList' }, function (err, result) {
+            request.seneca.act({ role: 'restRequest', cmd: 'getDevicesList' }, request.payload, function (err, result) {
                 if (err) {
                     return reply(err);
                 }
@@ -15,8 +15,21 @@ module.exports = [
     {
         method: 'POST',
         path: '/devices',
-        handler: { act: 'role:restRequest, cmd:registerDevice' } // will hit the registerDevice pattern using funky jsonic syntax
+        handler: function (request, reply) {
+            // Invoke a Seneca action using the request decoration
+            request.seneca.act({ role: 'restRequest', cmd: 'registerDevice' }, request.payload, function (err, result) {
+                if (err) {
+                    return reply(err);
+                }
+                return reply(result);
+            });
+        }
     },
+    // {
+    //     method: 'POST',
+    //     path: '/devices',
+    //     handler: { act: 'role:restRequest, cmd:registerDevice' } // will hit the registerDevice pattern using funky jsonic syntax
+    // },
     {
         method: 'DELETE',
         path: '/devices',

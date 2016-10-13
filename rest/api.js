@@ -1,6 +1,7 @@
 const Chairo = require('chairo');
 const Hapi = require('hapi');
 
+var rest_routes = require('./routes');
 const server = new Hapi.Server();
 server.connection({
     host: 'localhost',
@@ -26,65 +27,12 @@ server.register({ register: Chairo }, function (err) {
         // result: { id: 1 }
     });
 
+    // Register all microservices plugins with seneca object
     server.seneca.use(require('../rest/plugin_rest.js'), {});
     server.seneca.use(require('../core/plugin_core.js'), {});
 
-
-    // server.route({
-    //     method: 'GET',
-    //     path: '/devices',
-    //     handler: function (request, reply) {
-    //         // Invoke a Seneca action using the request decoration
-    //         request.seneca.act({ role: 'restRequest', cmd: 'getDevicesList' }, function (err, result) {
-    //             if (err) {
-    //                 return reply(err);
-    //             }
-    //             return reply(result);
-    //         });
-    //     }
-    // });
-    // server.route({
-    //     method: 'POST',
-    //     path: '/devices',
-    //     handler: { act: 'role:restRequest, cmd:registerDevice' } // will hit the registerDevice pattern using funky jsonic syntax
-    // });
-
-    // server.route({
-    //     method: 'DELETE',
-    //     path: '/devices',
-    //     handler: { // will hit the math pattern using full js object representation
-    //         act: {
-    //             role: 'restRequest',
-    //             cmd: 'deleteDevice'
-    //         }
-    //     }
-    // });
-
-    // // seneca route with some sugar
-    // server.route({
-    //     method: 'POST',
-    //     path: '/devices/{deviceId}',
-    //     handler: function (request, reply) {
-    //         return reply.act({ role: 'restRequest', cmd: 'postDataPoint'});
-    //     }
-    // });
-
-    // // seneca route with no magic
-    // server.route({
-    //     method: 'POST',
-    //     path: '/devices/{deviceId}/publish',
-    //     handler: function (request, reply) {
-    //         server.seneca.act({ role: 'restRequest', cmd: 'postDataToDevice' }, (err, result) => {
-    //             if (err)
-    //                 return console.error(err);
-
-    //             reply(null, result);
-    //         })
-    //     }
-    // });
-
-var rest_routes = require('./routes');
-server.route(rest_routes);
+    //This maps all HTTP methods against microservices
+    server.route(rest_routes);
 
     // start the server
     server.start(function (err) {
