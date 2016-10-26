@@ -23,6 +23,8 @@ var Device = mongoose.model('Device', deviceSchema);
 var category1 = { name: 'IOT', typeNo: 1 };
 var category2 = { name: 'quadrotor', typeNo: 2 };
 
+var fs = require('fs');
+var Tesseract = require('tesseract.js')
 
 module.exports = function core(options) {
     var seneca = this;
@@ -105,7 +107,7 @@ module.exports = function core(options) {
     this.add({ role: 'coreRequest', cmd: 'getDataPoints' }, function (msg, done) {
         done(null, { result: 'CORE SERVICE: data to device through MQTT or WS' })
     });
-    this.add({ role: 'coreRequest', cmd: 'taskScheduler' }, function (msg, done) {
+    this.add({ role: 'coreRequest', cmd: 'taskScheduler' }, function (message, done) {
         //check for tasklist and available resources
         // decide to schedule task locally or on cloud
         // if locally --> call another core service to execute task (vision)
@@ -113,14 +115,14 @@ module.exports = function core(options) {
 
         //execute taks locally only
         if (++options.counter % 3 != 0) {
-            console.log("executing task locally with " + msg);
-            seneca.act({ role: 'coreRequest', cmd: 'visionTask' }, msg, function (err, reply) {
-                console.log(reply.result);
+            console.log("executing task locally with " + message);
+            seneca.act({ role: 'coreRequest', cmd: 'visionTask' }, message, function (err, reply) { //message.msg is image/txt
+                //console.log(reply.result);
                 done(null, reply)
             })
         } else {
             //onCloud
-            options.cloud_client.cloudSendData(msg, function (result) {
+            options.cloud_client.cloudSendData(message, function (result) { //message.msg is image/txt
                 //console.log("Msg replied from cloud" + result);
                 done(null, { result: result });
             });
@@ -129,7 +131,26 @@ module.exports = function core(options) {
     this.add({ role: 'coreRequest', cmd: 'visionTask' }, function (message, done) {
         //execute vision task locally
         //console.log("visionTask: " + message.msg);
-        done(null, { result: 'result for ' + message.msg.replace(/^\D+/g, '') })
+
+
+        //console.log('CLOUD Server: %s', data['json_data']);
+        var base64Image = message.msg;
+        var decodedImage = new Buffer(base64Image, 'base64');
+        fs.writeFile('image_decoded.png', decodedImage, function (err) { });
+        Tesseract.recognize(decodedImage)
+            .then(txtdata => {
+                console.log('Recognized Text: ', txtdata.text);
+                done(null, { result: txtdata.text })
+            })
+            .catch(err => {
+                console.log('catch: ', err);
+                done(null, { result: "Error!!!" })
+            })
+            .finally(e => {
+                //console.log('finally\n');
+                //process.exit();
+            });
+        //done(null, { result: 'result for ' + message.msg.replace(/^\D+/g, '') }) //message.msg is image/text
     });
 
     return 'core';
