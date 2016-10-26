@@ -2,10 +2,50 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch",
+            "name": "Cloud",
             "type": "node",
             "request": "launch",
-            "program": "${workspaceRoot}/rest/api.js",
+            "program": "${workspaceRoot}/cloud/cloud_server.js",
+            "stopOnEntry": false,
+            "args": [],
+            "cwd": "${workspaceRoot}",
+            "preLaunchTask": null,
+            "runtimeExecutable": null,
+            "runtimeArgs": [
+                "--nolazy"
+            ],
+            "env": {
+                "NODE_ENV": "development"
+            },
+            "console": "internalConsole",
+            "sourceMaps": false,
+            "outDir": null
+        },
+        {
+            "name": "Edge",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceRoot}/edge/app.js",
+            "stopOnEntry": false,
+            "args": [],
+            "cwd": "${workspaceRoot}",
+            "preLaunchTask": null,
+            "runtimeExecutable": null,
+            "runtimeArgs": [
+                "--nolazy"
+            ],
+            "env": {
+                "NODE_ENV": "development"
+            },
+            "console": "internalConsole",
+            "sourceMaps": false,
+            "outDir": null
+        },
+        {
+            "name": "Device",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceRoot}/deviceNode_dummy/device_client.js",
             "stopOnEntry": false,
             "args": [],
             "cwd": "${workspaceRoot}",
