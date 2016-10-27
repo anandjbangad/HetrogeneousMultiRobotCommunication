@@ -5,11 +5,28 @@ const path = require('path');
 var WebSocket = require('ws');
 var ws = new WebSocket('ws://' + process.env.EDGE_HOST + ':' + process.env.EDGE_PORT);
 this.ws = ws;
-
+var fs = fs || require('fs')
 // List all files in a directory in Node.js recursively in a synchronous fashion
 var counter = 15;
+var delay_bw_images = 3000;
 ws.on('open', function open() {
-    walkSync(path.join(__dirname, '../dataset'), filelist, ws);
+    // var filelist = walkSync(path.join(__dirname, '../dataset'), filelist, ws);
+    let genObj = walkSync(path.join(__dirname, '../dataset'), ws);
+    genObj.next();
+    let interval = setInterval(() => {
+        val = genObj.next();
+
+        if (val.done) {
+            clearInterval(interval);
+        } else {
+            console.log(val.value);
+            fs.readFile(val.value, function (err, original_data) {
+                var base64Image = original_data.toString('base64');
+                ws.send(base64Image);
+            });
+        }
+    }, delay_bw_images);
+    console.log("Connection Established");
 });
 
 ws.on('message', function (data, flags) {
@@ -18,32 +35,23 @@ ws.on('message', function (data, flags) {
     console.log("Device Client: " + data);
 });
 
-var walkSync = function (dir, filelist, ws) {
+
+
+var walkSync = function* (dir, ws) {
 
     if (dir[dir.length - 1] != '/') dir = dir.concat('/')
 
     var fs = fs || require('fs'),
         files = fs.readdirSync(dir);
-    filelist = filelist || [];
-    files.forEach(function (file) {
+
+    for (let file of files) {
         if (fs.statSync(dir + file).isDirectory()) {
-            filelist = walkSync(dir + file + '/', filelist, ws);
+            yield* walkSync(dir + file + '/', ws);
         }
         else {
-            counter = counter - 1;
-            if (counter > 0) {
-                console.log(dir + file);
-                fs.readFile(dir + file, function (err, original_data) {
-                    //fs.writeFile(dir + file, original_data, function (err) { });
-                    var base64Image = original_data.toString('base64');
-                    ws.send(base64Image);
-                });
-            }
-            //filelist.push(dir+file);
+            yield (dir + file);
         }
-    });
-    return filelist;
+    }
 };
-var filelist = {};
 
 

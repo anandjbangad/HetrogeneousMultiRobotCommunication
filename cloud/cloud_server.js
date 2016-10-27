@@ -19,7 +19,7 @@ wss.on('connection', function connection(ws) {
         //console.log('CLOUD Server: %s', data['json_data']);
         var base64Image = data['json_data'];
         var decodedImage = new Buffer(base64Image, 'base64');
-        fs.writeFile('image_decoded.png', decodedImage, function (err) { });
+        //fs.writeFile('image_decoded.png', decodedImage, function (err) { });
         Tesseract.recognize(decodedImage)
             .then(txtdata => {
                 console.log('Recognized Text: ', txtdata.text);

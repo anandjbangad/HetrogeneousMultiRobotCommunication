@@ -115,7 +115,7 @@ module.exports = function core(options) {
 
         //execute taks locally only
         if (++options.counter % 3 != 0) {
-            console.log("executing task locally with " + message);
+            //console.log("executing task locally with " + message);
             seneca.act({ role: 'coreRequest', cmd: 'visionTask' }, message, function (err, reply) { //message.msg is image/txt
                 //console.log(reply.result);
                 done(null, reply)
@@ -136,7 +136,7 @@ module.exports = function core(options) {
         //console.log('CLOUD Server: %s', data['json_data']);
         var base64Image = message.msg;
         var decodedImage = new Buffer(base64Image, 'base64');
-        fs.writeFile('image_decoded.png', decodedImage, function (err) { });
+        //fs.writeFile('image_decoded.png', decodedImage, function (err) { });
         Tesseract.recognize(decodedImage)
             .then(txtdata => {
                 console.log('Recognized Text: ', txtdata.text);

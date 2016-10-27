@@ -1,30 +1,5 @@
 require('dotenv').config({ path: './.env' });
 
-
-// var mongoose = require('mongoose');
-// mongoose.connect('mongodb://localhost/coreDB');
-// var Schema = mongoose.Schema;
-
-// var subCategory = new Schema({
-//     name: String,
-//     typeNo: Number
-// })
-
-// var deviceSchema = new Schema({
-//     deviceId: String,
-//     type: { type: String },
-//     description: String,
-//     createdOn: { type: Date, default: Date.now },
-//     lastUpdate: { type: Date, default: Date.now },
-//     isActive: { type: Boolean, default: true },
-//     categories: [subCategory],
-// });
-
-// var DeviceModel = mongoose.model('Device', deviceSchema);
-
-
-
-
 const Chairo = require('chairo');
 const Hapi = require('hapi');
 

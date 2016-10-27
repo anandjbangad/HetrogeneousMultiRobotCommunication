@@ -1,5 +1,8 @@
 #mine
 dataset
+dataset1
+dataset2
+*.traineddata
 
 # Logs
 logs
