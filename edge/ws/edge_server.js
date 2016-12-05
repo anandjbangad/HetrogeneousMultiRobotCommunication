@@ -1,7 +1,10 @@
 module.exports = function (seneca) {
     console.log(process.env.EDGE_PORT);
+    var jwt = require('jsonwebtoken');
     var WebSocketServer = require('ws').Server
-        , wss = new WebSocketServer({ port: process.env.EDGE_PORT });
+        , wss = new WebSocketServer({
+            port: process.env.EDGE_PORT
+        });
 
     wss.on('connection', function connection(ws) {
         console.log("Connection Established on Edge Server");

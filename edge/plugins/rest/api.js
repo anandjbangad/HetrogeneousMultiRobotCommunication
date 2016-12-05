@@ -17,6 +17,7 @@ module.exports = [
         path: '/devices',
         handler: function (request, reply) {
             // Invoke a Seneca action using the request decoration
+            console.log("!!!!!!!!!!!!!!!!!!POST REQUEST !!!!!!!!!!!");
             request.seneca.act({ role: 'restRequest', cmd: 'registerDevice' }, request.payload, function (err, result) {
                 if (err) {
                     return reply(err);

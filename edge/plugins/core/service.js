@@ -1,7 +1,8 @@
 //core.js
 
 var mongoose = require('mongoose');
-mongoose.connect('mongodb://localhost/coreDB');
+// mongoose.connect('mongodb://localhost/coreDB');
+var db1 = mongoose.createConnection('mongodb://localhost/coreDB');
 var Schema = mongoose.Schema;
 
 var subCategory = new Schema({
@@ -19,7 +20,7 @@ var deviceSchema = new Schema({
     categories: [subCategory],
 });
 
-var Device = mongoose.model('Device', deviceSchema);
+var Device = db1.model('Device', deviceSchema);
 var category1 = { name: 'IOT', typeNo: 1 };
 var category2 = { name: 'quadrotor', typeNo: 2 };
 
@@ -116,7 +117,11 @@ module.exports = function core(options) {
         //execute taks locally only
         if (++options.counter % 3 != 0) {
             //console.log("executing task locally with " + message);
-            seneca.act({ role: 'coreRequest', cmd: 'visionTask' }, message, function (err, reply) { //message.msg is image/txt
+            // seneca.act({ role: 'coreRequest', cmd: 'visionTask' }, message, function (err, reply) { //message.msg is image/txt
+            //     //console.log(reply.result);
+            //     done(null, reply)
+            // })
+            seneca.act({ role: 'visionRequest', cmd: 'visionTask1' }, message, function (err, reply) { //message.msg is image/txt
                 //console.log(reply.result);
                 done(null, reply)
             })
@@ -127,30 +132,6 @@ module.exports = function core(options) {
                 done(null, { result: result });
             });
         }
-    });
-    this.add({ role: 'coreRequest', cmd: 'visionTask' }, function (message, done) {
-        //execute vision task locally
-        //console.log("visionTask: " + message.msg);
-
-
-        //console.log('CLOUD Server: %s', data['json_data']);
-        var base64Image = message.msg;
-        var decodedImage = new Buffer(base64Image, 'base64');
-        //fs.writeFile('image_decoded.png', decodedImage, function (err) { });
-        Tesseract.recognize(decodedImage)
-            .then(txtdata => {
-                console.log('Recognized Text: ', txtdata.text);
-                done(null, { result: txtdata.text })
-            })
-            .catch(err => {
-                console.log('catch: ', err);
-                done(null, { result: "Error!!!" })
-            })
-            .finally(e => {
-                //console.log('finally\n');
-                //process.exit();
-            });
-        //done(null, { result: 'result for ' + message.msg.replace(/^\D+/g, '') }) //message.msg is image/text
     });
 
     return 'core';

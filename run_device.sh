@@ -1,2 +1,2 @@
 #cd deviceNode_dummy
-nodemon deviceNode_dummy/device_client.js
+nodemon deviceNode/device_client.js
