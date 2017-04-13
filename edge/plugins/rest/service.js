@@ -23,11 +23,13 @@ module.exports = function rest(options) {
     });
 
     this.add({ role: 'restRequest', cmd: 'registerDevice' }, function (msg, done) {
-        seneca.act({ role: 'coreRequest', cmd: 'registerDevice'}, msg, function (err, reply) {
+        seneca.act({ role: 'coreRequest', cmd: 'registerDevice' }, msg, function (err, reply) {
             console.log(reply.result);
         })
-        done(null, { id: reply.id,
-            result: reply.result })
+        done(null, {
+            id: reply.id,
+            result: reply.result
+        })
     });
 
     this.add({ role: 'restRequest', cmd: 'deleteDevice' }, function (msg, done) {
@@ -51,8 +53,8 @@ module.exports = function rest(options) {
         done(null, { result: 'data to device through MQTT or WS' })
     });
 
-    this.add({ role: 'restRequest', cmd: 'postDataToDevice' }, function (msg, done) {
-        seneca.act({ role: 'coreRequest', cmd: 'postDataToDevice' }, msg, function (err, reply) {
+    this.add({ role: 'restRequest', cmd: 'getInfo' }, function (msg, done) {
+        seneca.act({ role: 'coreRequest', cmd: 'getInfo' }, msg, function (err, reply) {
             console.log(reply.result);
         })
         done(null, { result: 'data to device through MQTT or WS' })

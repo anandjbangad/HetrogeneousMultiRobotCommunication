@@ -61,5 +61,19 @@ module.exports = [
                 reply(null, result);
             })
         }
+    },
+    {
+        method: 'GET',
+        path: '/getInfo',
+        handler: function (request, reply) {
+            // Invoke a Seneca action using the request decoration
+            request.seneca.act({ role: 'restRequest', cmd: 'getInfo' }, request.payload, function (err, result) {
+                if (err) {
+                    return reply(err);
+                }
+                //not good practice, APIs are needed...not in this lifetime
+                return reply(result);
+            });
+        }
     }
 ];

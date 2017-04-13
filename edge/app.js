@@ -1,26 +1,12 @@
 require('dotenv').config({ path: './.env' });
 
-var mongoose = require('mongoose');
-var db1 = mongoose.createConnection('mongodb://localhost/coreDB');
-var Schema = mongoose.Schema;
+if (!process.env.UUID) {
+    process.env.UUID = require('uuid/v4')();
+    console.log("New UUID for edge is " + process.env.UUID)
+}
 
-var subCategory = new Schema({
-    name: String,
-    typeNo: Number
-})
-
-var nodeListSchema = new Schema({
-    ipAddr: { type: String, index: { unique: true, dropDups: true } },
-    type: { type: String },
-    description: String,
-    hostname: String,
-    createdOn: { type: Date, default: Date.now },
-    lastUpdate: { type: Date, default: Date.now },
-    isActive: { type: Boolean, default: true },
-    categories: [subCategory],
-});
-
-var NodeList = db1.model('NodeList', nodeListSchema);
+require("./storage.js").cleandb();
+require("./os").osUsage.startMonitoring();
 
 var mdns = require('mdns');
 const Chairo = require('chairo');
@@ -54,7 +40,10 @@ server.register({ register: Chairo }, function (err) {
 
     // start cloud client and edge server after middleware is initialized
     var cloud_client = require("./ws/cloud_client.js"); //executing constructor
-    cloud_client.init();
+    cloud_client.init()
+
+    //.then(cloud_client.registerServices)
+
     var edge_server = require("./ws/edge_server.js")(server.seneca); //executing constructor
 
 
@@ -73,37 +62,7 @@ server.register({ register: Chairo }, function (err) {
     server.start(function (err) {
         if (err) throw err;
         console.log('Server is running at', server.info.uri);
-        var ad = mdns.createAdvertisement(mdns.tcp('http', 'caslab'), 4321);
-        ad.start();
-        //listen to caslab http servers
-        var sequence = [
-            mdns.rst.DNSServiceResolve(),
-            'DNSServiceGetAddrInfo' in mdns.dns_sd ? mdns.rst.DNSServiceGetAddrInfo() : mdns.rst.getaddrinfo({ families: [4] }),
-            mdns.rst.makeAddressesUnique()
-        ];
-        var browser = mdns.createBrowser(mdns.tcp('http', 'caslab'), { resolverSequence: sequence });
-
-        // // watch all http servers
-        // var browser = mdns.createBrowser(mdns.tcp('http'));
-        browser.on('serviceUp', function (service) {
-            console.log("service up: ", service.addresses[0]);
-            NodeList.findOneAndUpdate({ ipAddr: service.addresses[0] }, {
-                ipAddr: service.addresses[0],
-                description: "New device",
-                hostname: service.name
-            }, { upsert: true }, function (err, doc) {
-                console.log(doc);
-            });
-            //add ipaddr and hostname to serverDB
-        });
-        browser.on('serviceDown', function (service) {
-            console.log("service down: ", service.name);
-            NodeList.remove({ hostname: service.name }, function (err) {
-                console.log(err);
-            })
-            // remove from serverDB
-        });
-        browser.start();
+        require("./mDNS.js").startAnnouncements();
     });
 
 

@@ -1,28 +1,7 @@
 //core.js
 
-var mongoose = require('mongoose');
-// mongoose.connect('mongodb://localhost/coreDB');
-var db1 = mongoose.createConnection('mongodb://localhost/coreDB');
-var Schema = mongoose.Schema;
-
-var subCategory = new Schema({
-    name: String,
-    typeNo: Number
-})
-
-var deviceSchema = new Schema({
-    deviceId: String,
-    type: { type: String },
-    description: String,
-    createdOn: { type: Date, default: Date.now },
-    lastUpdate: { type: Date, default: Date.now },
-    isActive: { type: Boolean, default: true },
-    categories: [subCategory],
-});
-
-var Device = db1.model('Device', deviceSchema);
-var category1 = { name: 'IOT', typeNo: 1 };
-var category2 = { name: 'quadrotor', typeNo: 2 };
+var NodeList = require('../../storage.js').getModel;
+var osUsage = require("../../os").osUsage;
 
 var fs = require('fs');
 var Tesseract = require('tesseract.js')
@@ -101,8 +80,19 @@ module.exports = function core(options) {
         done(null, { result: 'CORE SERVICE: data to device through MQTT or WS' })
     });
 
-    this.add({ role: 'coreRequest', cmd: 'postDataToDevice' }, function (msg, done) {
-        done(null, { result: 'CORE SERVICE: data to device through MQTT or WS' })
+    this.add({ role: 'coreRequest', cmd: 'getInfo' }, function (msg, done) {
+        console.log("getInfo core request reached");
+        var result;
+        NodeList.findOne({ uuid: process.env.uuid }, function (err, doc) {
+            if (err) console.error(err);
+            result = {
+                "ipAddr": doc.ipAddr,
+                "services": doc.services,
+                "cpu": osUsage.cpuPercent,
+                "mem": osUsage.freeMem
+            }
+        });
+        done(null, result)
     });
 
     this.add({ role: 'coreRequest', cmd: 'getDataPoints' }, function (msg, done) {
@@ -121,6 +111,7 @@ module.exports = function core(options) {
             //     //console.log(reply.result);
             //     done(null, reply)
             // })
+            //if queue is empty, run the task now otherwise enque in queue
             seneca.act({ role: 'visionRequest', cmd: 'visionTask1' }, message, function (err, reply) { //message.msg is image/txt
                 //console.log(reply.result);
                 done(null, reply)
