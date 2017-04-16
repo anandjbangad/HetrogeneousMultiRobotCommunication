@@ -3,6 +3,7 @@ dataset
 dataset1
 dataset2
 *.traineddata
+built
 
 # Logs
 logs

@@ -1,22 +1,20 @@
-//vision.js
+import fs = require('fs');
+import Tesseract = require('tesseract.js')
 
-var fs = require('fs');
-var Tesseract = require('tesseract.js')
-
-module.exports = function vision(options) {
+export function vision(options) {
     var seneca = this;
     //Plugin Init. Called when plugin is used for first time
     //plugin name (i.e function name or return string) and init: 'plugin name' should be same
-    seneca.add({ init: 'vision' }, function(msg, done) {
+    seneca.add({ init: 'vision' }, function (msg, done) {
         // do stuff, e.g.
         console.log('connecting to db during initialization...')
-        setTimeout(function() {
+        setTimeout(function () {
             console.log(' vision api init done!')
             done()
         }, 1000)
     });
 
-    this.add({ role: 'visionRequest', cmd: 'visionTask1' }, function(message, done) {
+    this.add({ role: 'visionRequest', cmd: 'visionTask1' }, function (message, done) {
         //execute vision task locally
         //console.log("visionTask: " + message.msg);
         console.log("test............");

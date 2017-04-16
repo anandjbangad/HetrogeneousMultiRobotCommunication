@@ -1,6 +1,8 @@
-var ping = require('ping');
+import ping = require('ping');
 
-class gps {
+export class gps {
+    lat: Number;
+    lon: Number;
     constructor(lat, lon) {
         this.lat = lat;
         this.lon = lon;
@@ -9,21 +11,34 @@ class gps {
         return "lat:" + this.lat + " lon:" + this.lon;
     }
 }
-class Neighbor {
+export class Neighbor {
+    gps: gps;
+    ipAddr: String;
+    services: String[];
+
     constructor(gps, ipAddr) {
         this.gps = gps;
         this.ipAddr = ipAddr;
     }
     toString() {
-        return 'Neighbour with ' + this.gps.toString() + " " + ipAddr;
+        return 'Neighbour with ' + this.gps.toString() + " " + this.ipAddr;
     }
     setServices(services) {
+
         this.services = services;
     }
 }
-class Neighbors {
-    constructor(neighbors) {
-        this.neighbors = neighbors;
+export class Neighbors {
+    private static instance: Neighbors;
+    neighbors: Neighbor[];
+
+    private constructor() { }
+
+    static getInstance() {
+        if (!Neighbors.instance) {
+            Neighbors.instance = new Neighbors();
+        }
+        return Neighbors.instance;
     }
     addNeighbor(neighbor) {
         this.neighbors.push(neighbor);
@@ -41,11 +56,11 @@ class Neighbors {
                 })
         })
     }
-    updateNeighbors(updatedNeighbors) {
+    public updateNeighbors(updatedNeighbors) {
         this.neighbors = [];
         updatedNeighbors.forEach(function (item, index, array) {
-            this.neighbors.push(new Neighbor(new gps(item.lat, item.lon)), item.ipAddr)
-        })
+            //this.neighbors.push(new Neighbor(new gps(item.lat, item.lon)), item.ipAddr) TODO
+        });
     }
     toString() {
         var str;
@@ -55,13 +70,6 @@ class Neighbors {
         return str;
     }
     startHeartbeat() {
-        setInterval(checkNeighborsNow, process.env.peerHeartbeatInterval);
+        setInterval(this.checkNeighborsNow, process.env.peerHeartbeatInterval);
     }
-
 }
-
-module.exports = {
-    "neighbors": new Neighbors([]), //object
-    "Neighbor": Neighbor,   //class
-    "gps": gps  //class
-} 

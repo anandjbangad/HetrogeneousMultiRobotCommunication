@@ -17,6 +17,7 @@
     "ws": "^2.2.3"
   },
   "devDependencies": {
-    "prettier": "^1.1.0"
+    "@types/node": "^7.0.12",
+    "ts-node": "^3.0.2"
   }
 }

@@ -1,4 +1,4 @@
-module.exports = [
+export =[
     {
         method: 'POST',
         path: '/vision',

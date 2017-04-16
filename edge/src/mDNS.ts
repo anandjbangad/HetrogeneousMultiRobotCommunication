@@ -29,12 +29,13 @@
 //     // remove from serverDB
 // });
 // browser.start();
-var discovery = require('dns-discovery')
+import discovery = require('dns-discovery')
+import { NodeList } from "./storage.js"
 
 var disc1 = discovery()
 var disc2 = discovery()
 
-function findPeerNodes() {
+export function findPeerNodes() {
     disc1.on('peer', function (name, peer) {
         NodeList.findOneAndUpdate({ ipAddr: peer.host }, { $set: { ipAddr: peer.host } }, function (err, doc) {
             console.log("updated");
@@ -45,12 +46,7 @@ function findPeerNodes() {
     })
 }
 
-function startAnnouncements() {
+export function startAnnouncements() {
     // announce an app 
     disc2.announce('cas-lab-app', 9082)
-}
-
-module.exports = {
-    "findPeerNodes": findPeerNodes,
-    "startAnnouncements": startAnnouncements
 }
