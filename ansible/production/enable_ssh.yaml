@@ -1,0 +1,33 @@
+---
+# 
+# always start with ---
+- hosts: middleware
+  sudo: yes
+  gather_facts: False
+
+  tasks:
+  - name: Ensure ssh is installed
+    apt: name=openssh-server state=present
+  
+  - name: Start ssh service
+    service: name=ssh enabled=yes state=started
+# enabled=yes enables service at boot
+# state=started starts the service, check "ansible-doc service"
+
+# - hosts: iot
+#   sudo: yes
+
+#   tasks:
+#   - name: Ensure ssh is installed
+#     apt: name=openssh-server state=present
+  
+#   - name: Start ssh service
+#     service: name=ssh enabled=yes state=started
+
+# - hosts: middleware:iot
+#   sudo: yes
+
+#   tasks:
+#   - name: Stop IPTABLES NOW!!
+#     service: name=iptables state=started
+# disable iptables to disable firewall and use other ports 

@@ -1,3 +1,4 @@
+//module.exports = function rest(options) {
 export function rest(options) {
   var seneca = this;
   //Plugin Init. Called when plugin is used for first time
@@ -30,8 +31,8 @@ export function rest(options) {
       console.log(reply.result);
     });
     done(null, {
-      id: reply.id,
-      result: reply.result
+      //id: reply.id,
+      //result: reply.result
     });
   });
 

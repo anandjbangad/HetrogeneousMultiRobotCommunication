@@ -1,0 +1,17 @@
+---
+- hosts: node1
+  become: yes
+  become_user: nvidia
+  gather_facts: yes
+  
+  tasks:
+    - name: Update and upgrade apt packages
+      become: true
+      become_user: nvidia
+      apt:
+        upgrade: yes
+        update_cache: yes
+    - name: "sudo to root"
+      command: /usr/bin/whoami
+    - name: Installing nodejs
+      apt: name=nodejs state=latest update_cache=yes

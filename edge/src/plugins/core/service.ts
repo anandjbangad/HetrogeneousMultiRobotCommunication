@@ -4,12 +4,12 @@ import { Device } from "../../storage.js";
 import { NodeList } from "../../storage.js";
 
 import { cpuPercent, freeMem } from "../../os.js";
-
+import { cloudSendData } from "../../ws/cloud_client.js";
 import fs = require("fs");
 
 import Tesseract = require("tesseract.js");
 
-export function core(options) {
+export function core(globalCtx) {
   var seneca = this;
   //Plugin Init. Called when plugin is used for first time
   //plugin name (i.e function name or return string) and init: 'plugin name' should be same
@@ -120,25 +120,29 @@ export function core(options) {
     // if on cloud --> call remote offload core service
 
     //execute taks locally only
-    if (++options.counter % 3 != 0) {
+    if (++globalCtx.counter % 3 != 0) {
       //console.log("executing task locally with " + message);
       // seneca.act({ role: 'coreRequest', cmd: 'visionTask' }, message, function (err, reply) { //message.msg is image/txt
       //     //console.log(reply.result);
       //     done(null, reply)
       // })
       //if queue is empty, run the task now otherwise enque in queue
+      console.error("exec locally");
       seneca.act(
         { role: "visionRequest", cmd: "visionTask1" },
         message,
         function (err, reply) {
           //message.msg is image/txt
           //console.log(reply.result);
+          console.error("got reply");
           done(null, reply);
         }
       );
     } else {
+      console.error("exec on cloud");
       //onCloud
-      options.cloud_client.cloudSendData(message, function (result) {
+      cloudSendData(message, function (result) {
+        // options.cloud_client.cloudSendData(message, function (result) {
         //message.msg is image/txt
         //console.log("Msg replied from cloud" + result);
         done(null, { result: result });

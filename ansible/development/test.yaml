@@ -1,0 +1,7 @@
+---
+- hosts: cloud
+  sudo: yes
+  vars_files:
+    - vars/main.yaml
+  roles:
+    - geerlingguy.nodejs

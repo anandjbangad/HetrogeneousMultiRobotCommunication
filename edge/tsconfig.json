@@ -5,6 +5,7 @@
         "sourceMap": true,
         "allowJs": true,
         "strictNullChecks": true,
+        "alwaysStrict": true,
         //"noEmitOnError": true,
         //"noImplicitAny": true,
         "target": "ES2016"

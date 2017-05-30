@@ -1,0 +1,3 @@
+caslab0..org ansible_host=192.168.33.10 ansible_user=nvidia ansible_port=22
+caslab1..org ansible_host=192.168.33.11 ansible_user=root
+caslab2..org ansible_host=192.168.33.12 ansible_user=root

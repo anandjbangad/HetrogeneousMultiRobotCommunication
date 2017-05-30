@@ -1,0 +1,1 @@
+{"virtualbox":{"/home/vagrant/deviceNode":{"guestpath":"/home/vagrant/deviceNode","hostpath":"/home/sbhal/workspace/be-fruitful/deviceNode","disabled":false,"__vagrantfile":true},"/vagrant":{"guestpath":"/vagrant","hostpath":"/home/sbhal/workspace/be-fruitful/ansible/development","disabled":false,"__vagrantfile":true}}}

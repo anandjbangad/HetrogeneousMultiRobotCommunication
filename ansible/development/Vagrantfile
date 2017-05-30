@@ -1,0 +1,45 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+VAGRANTFILE_API_VERSION = "2"
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+  
+  config.vm.define "node1" do |node1|
+      node1.vm.box = "ubuntu/trusty64"
+      node1.vm.hostname = "node1"
+      node1.vm.network "private_network", ip: "192.168.1.10"
+      node1.vm.synced_folder "../../edge/", "/home/vagrant/edge"
+    end
+  config.vm.define "node2" do |node2|
+      node2.vm.box = "ubuntu/trusty64"
+      node2.vm.hostname = "node2"
+      node2.vm.network "private_network", ip: "192.168.1.11"
+      node2.vm.synced_folder "../../edge/", "/home/vagrant/edge"
+    end
+  config.vm.define "node3" do |node3|
+      node3.vm.box = "ubuntu/trusty64"
+      node3.vm.hostname = "node3"
+      node3.vm.network "private_network", ip: "192.168.1.12"
+      node3.vm.synced_folder "../../edge/", "/home/vagrant/edge"
+    end
+  config.vm.define "iot1" do |iot1|
+      iot1.vm.box = "ubuntu/trusty64"
+      iot1.vm.hostname = "iot1"
+      iot1.vm.network "private_network", ip: "192.168.1.20"
+      iot1.vm.synced_folder "../../deviceNode", "/home/vagrant/deviceNode"
+    end
+  config.vm.define "iot2" do |iot2|
+      iot2.vm.box = "ubuntu/trusty64"
+      iot2.vm.hostname = "iot2"
+      iot2.vm.network "private_network", ip: "192.168.1.21"
+      iot2.vm.synced_folder "../../deviceNode", "/home/vagrant/deviceNode"
+    end
+  config.vm.define "cloud1" do |cloud1|
+      cloud1.vm.box = "ubuntu/trusty64"
+      cloud1.vm.hostname = "cloud1"
+      cloud1.vm.network "private_network", ip: "192.168.1.30"
+      cloud1.vm.synced_folder "../../cloud", "/home/vagrant/cloud"
+    end
+    
+end

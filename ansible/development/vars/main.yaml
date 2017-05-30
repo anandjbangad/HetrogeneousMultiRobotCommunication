@@ -1,0 +1,7 @@
+---
+# nodejs_install_npm_user: vagrant
+# nodes_forever: false
+# nodejs_npm_global_packages:
+#   - name: nodemon
+node_apps_location: /home/vagrant/cloud
+# npm_config_unsafe_perm: "true"

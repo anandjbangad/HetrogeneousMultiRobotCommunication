@@ -1,0 +1,31 @@
+node1 ansible_ssh_host=192.168.1.10
+node2 ansible_ssh_host=192.168.1.11 
+node3 ansible_ssh_host=192.168.1.12
+
+iot1 ansible_ssh_host=192.168.1.20
+iot2 ansible_ssh_host=192.168.1.21   
+
+cloud1 ansible_ssh_host=192.168.1.30 
+
+[middleware]
+node1
+node2
+node3
+
+[iot]
+iot1
+iot2
+
+[cloud]
+cloud1
+
+[alldevices:children]
+middleware
+iot
+cloud
+
+[alldevices:vars]
+ansible_ssh_user=vagrant
+ansible_ssh_pass=vagrant
+
+

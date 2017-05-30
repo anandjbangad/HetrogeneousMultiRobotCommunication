@@ -1,4 +1,8 @@
 import ping = require('ping');
+import WebSocket = require('ws');
+import ipaddr = require('ipaddr.js');
+import * as itf from "../../common/interfaces.d"
+
 
 export class gps {
     lat: Number;
@@ -11,14 +15,69 @@ export class gps {
         return "lat:" + this.lat + " lon:" + this.lon;
     }
 }
+
 export class Neighbor {
     gps: gps;
     ipAddr: String;
     services: String[];
+    neighws: any;
+    static seneca: any;
+    socketQueueId: number;
+    socketQueue: any;
 
     constructor(gps, ipAddr) {
+        this.socketQueueId = 0;
+        this.socketQueue = {};
         this.gps = gps;
         this.ipAddr = ipAddr;
+        this.neighwsOpenHandler = this.neighwsOpenHandler.bind(this);
+        //this.neighborSendData = this.neighborSendData.bind(this);
+        this.neighwsMsgHandler = this.neighwsMsgHandler.bind(this);
+        //check if this ipAddr is already in neighors array
+        //only add neighbor if its absent in array
+        //this.neighws = new WebSocket('ws://' + ipAddr + ':' + process.env.EDGE_PORT + '/edge_server');
+        this.neighws = new WebSocket('ws://' + ipaddr.process(ipAddr) + ':' + process.env.EDGE_PORT + '/edge_server');
+        //this.neighws.on('open', this.neighwsOpenHandler);
+        this.neighws.on('open', function open() {
+            this.neighws = this;
+        });
+        this.neighws.on('message', this.neighwsMsgHandler);
+    }
+    neighwsOpenHandler(ipAddr) {
+        //console.log("I am a edge node send msg", this.neighws.upgradeReq.url);
+        //this.neighws.send('I am a edge Node');
+        console.log("Connection established with edge node " + this.ipAddr);
+        // this.neighborSendData(1, function () {
+        //     console.log("everything done");
+        // })
+    }
+    neighwsMsgHandler(message, flags) {
+        let data: itf.i_edge_rsp = JSON.parse(message);
+        // only resuts msg will be coming here
+        //console.log("**Result Message received from neighbor:");
+        if (
+            typeof data["cmd_id"] != "undefined" &&
+            typeof this.socketQueue["i_" + data["cmd_id"]] == "function"
+        ) {
+            let execFunc = this.socketQueue["i_" + data["cmd_id"]];
+            execFunc(data);
+            delete this.socketQueue["i_" + data["cmd_id"]]; // to free up memory.. and it is IMPORTANT thanks  Le Droid for the reminder
+            return;
+        } else {
+            console.error("Error inside neighbor socket logic!!");;
+        }
+        //process t
+        //don't offload to any other node since ttl=1 assumed
+
+        // this.seneca.act(
+        //     { role: "visionRequest", cmd: "visionTask1" },
+        //     message,
+        //     function (err, reply) {
+        //         //message.msg is image/txt
+        //         //console.log(reply.result);
+        //         this.neighws.send(reply);
+        //     }
+        // );
     }
     toString() {
         return 'Neighbour with ' + this.gps.toString() + " " + this.ipAddr;
@@ -27,12 +86,38 @@ export class Neighbor {
 
         this.services = services;
     }
+    neighborSendData(data: itf.i_edge_req, onReturnFunction) {
+        //console.log("Neighbor Send Data invoked!!! to ");
+        this.socketQueueId++;
+        if (typeof onReturnFunction == "function") {
+            // the 'i_' prefix is a good way to force string indices, believe me you'll want that in case your server side doesn't care and mixes both like PHP might do
+            this.socketQueue["i_" + this.socketQueueId] = onReturnFunction;
+        }
+        let jsonData: itf.i_edge_req = {
+            type: "neighmsg",
+            cmd_id: this.socketQueueId,
+            payload: data.payload,
+            ttl: data.ttl,
+            task_id: data.task_id
+        };
+
+        try {
+            this.neighws.send(JSON.stringify(jsonData));
+        } catch (e) {
+            console.error("Sending failed ... .disconnected failed");
+        }
+    }
+}
+export function neighbors(globalCtx) {
+    Neighbor.seneca = this;
 }
 export class Neighbors {
     private static instance: Neighbors;
     neighbors: Neighbor[];
 
-    private constructor() { }
+    private constructor() {
+        this.neighbors = [];
+    }
 
     static getInstance() {
         if (!Neighbors.instance) {
@@ -40,8 +125,18 @@ export class Neighbors {
         }
         return Neighbors.instance;
     }
-    addNeighbor(neighbor) {
-        this.neighbors.push(neighbor);
+    addNeighbor(lat, lon, ipAddr: string) {
+        this.neighbors.push(new Neighbor(new gps(lat, lon), ipAddr));
+    }
+    public getAllNeighbor(): Neighbor[] | null {
+        return this.neighbors;
+    }
+
+    public updateNeighbors(updatedNeighbors) {
+        updatedNeighbors.forEach(function (item, index, array) {
+            if (!item.ipAddr.includes())
+                this.addNeighbor(item.lat, item.lon, item.ipAddr);
+        }, this);
     }
     removeNeighbor(neighbor) {
         this.neighbors.splice(this.neighbors.indexOf(neighbor), 1);
@@ -56,11 +151,20 @@ export class Neighbors {
                 })
         })
     }
-    public updateNeighbors(updatedNeighbors) {
-        this.neighbors = [];
-        updatedNeighbors.forEach(function (item, index, array) {
-            //this.neighbors.push(new Neighbor(new gps(item.lat, item.lon)), item.ipAddr) TODO
-        });
+    getNeighbor(ipAddr: string): Neighbor | null {
+        this.neighbors.forEach(function (item, index, array) {
+            if (item.ipAddr === ipAddr) {
+                return item;
+            }
+        }, this);
+        return null;
+    }
+    public updateNeighborWs(ipAddr: string, neighws) {
+        let neighbor = this.getNeighbor(ipAddr);
+        if (neighbor !== null) {
+            neighbor.neighws = neighws;
+            //update last update time
+        }
     }
     toString() {
         var str;
@@ -73,3 +177,4 @@ export class Neighbors {
         setInterval(this.checkNeighborsNow, process.env.peerHeartbeatInterval);
     }
 }
+/// <reference path="./ws/edge_server.ts" />

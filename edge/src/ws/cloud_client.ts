@@ -1,28 +1,46 @@
 import neigh = require("../neighbors.js");
+import os = require("../os.js");
 import WebSocket = require("ws");
+import ipaddr = require('ipaddr.js');
+import * as itf from "../../../common/interfaces.d"
 var socketQueueId = 0;
 var socketQueue = {};
 
 let cloud_ws;
-export function init() {
+export function init(globalCtx) {
+  console.log("Cloud Client init!");
   //imported from core module
-  cloud_ws = new WebSocket(
-    "ws://" + process.env.CLOUD_HOST + ":" + process.env.CLOUD_PORT
-  );
+  try {
+    cloud_ws = new WebSocket("ws://" + process.env.CLOUD_HOST + ":" + process.env.CLOUD_PORT); //force new connection
+  } catch (e) {
+    console.log(e);
+  }
   //var ws = new WebSocket('ws://localhost:8083');
 
   cloud_ws.on("open", function open() {
     console.log("Connection Established to cloud");
     //update uuid with cloud
+    // var ipAddr = ipaddr.parse(this.url.split(":")[1].replace(/\//g, ''));
+    // console.error("ipaddr is ", ipAddr);
+    // os.setIpAddr(ipAddr);
+    let json_message: itf.cld_edge_init = {
+      type: "init",
+      uuid: process.env.UUID,
+      sessionID: process.env.sessionID
+    }
     cloud_ws.send(
-      JSON.stringify({
-        type: "init",
-        uuid: process.env.UUID,
-        date: Date.now()
-      })
+      JSON.stringify(json_message)
     );
 
     //ws.send(array, { binary: true, mask: true });
+  });
+  cloud_ws.onerror = function (event) {
+    console.error("Error in cloud client on Edge");
+  }
+  cloud_ws.on("close", function close() {
+    console.error("connection closed to cloud");
+    //reconnect
+    setTimeout(function () { init(globalCtx) }, 5000);
   });
 
   cloud_ws.on("message", function (message, flags) {
@@ -38,6 +56,7 @@ export function init() {
       console.error("type field is undefined");
       return;
     }
+    console.log("-->Msg Rcvd: " + data["type"]);
     switch (data["type"]) {
       case "initDone":
         var step;
@@ -49,28 +68,32 @@ export function init() {
         break;
 
       case "servicesDone":
+        console.log("serviceDone ipaddr is ", data.ipAddr);
+        os.setIpAddr(data.ipAddr);
         //send upto 5 neighbouring devices' uuid
         getNeighbours();
         break;
       case "getNeighboursDone":
         console.log(data["neighbors"]);
+        console.log(data["ipAddr"]);
         //store neighbors list
         neigh.Neighbors.getInstance().updateNeighbors(
           data["neighbors"]
         );
         break;
-      case "msg":
+      case "cldmsg":
         //check for other msgs
+        let cld_msg: itf.i_edge_rsp = data;
         if (
-          typeof data["cmd_id"] != "undefined" &&
-          typeof socketQueue["i_" + data["cmd_id"]] == "function"
+          typeof cld_msg["cmd_id"] != "undefined" &&
+          typeof socketQueue["i_" + cld_msg["cmd_id"]] == "function"
         ) {
-          let execFunc = socketQueue["i_" + data["cmd_id"]];
-          execFunc(data["result"]);
-          delete socketQueue["i_" + data["cmd_id"]]; // to free up memory.. and it is IMPORTANT thanks  Le Droid for the reminder
+          let execFunc = socketQueue["i_" + cld_msg["cmd_id"]];
+          execFunc(cld_msg);
+          delete socketQueue["i_" + cld_msg["cmd_id"]]; // to free up memory.. and it is IMPORTANT thanks  Le Droid for the reminder
           return;
         } else {
-          socketRecieveData(data);
+          console.log("socketRecieveData", cld_msg.result);
         }
         break;
       default:
@@ -86,15 +109,15 @@ export function cloudSendData(data, onReturnFunction) {
       // the 'i_' prefix is a good way to force string indices, believe me you'll want that in case your server side doesn't care and mixes both like PHP might do
       socketQueue["i_" + socketQueueId] = onReturnFunction;
     }
-    let jsonData = JSON.stringify({
+    let jsonData: itf.i_edge_req = {
       type: "msg",
       cmd_id: socketQueueId,
-      json_data: data.msg,
-      uuid: 1,
-      date: Date.now()
-    });
+      payload: data.payload,
+      task_id: data.task_id,
+      ttl: data.ttl
+    };
     try {
-      cloud_ws.send(jsonData);
+      cloud_ws.send(JSON.stringify(jsonData));
     } catch (e) {
       console.log("Sending failed ... .disconnected failed");
     }
@@ -103,32 +126,35 @@ export function cloudSendData(data, onReturnFunction) {
 export function getNeighbours() {
   return new Promise(function (resolve, reject) {
     //send upto 5 neighbouring devices' uuid
+    let json_message: itf.cld_edge_getNeighbors = {
+      type: "getNeighbours",
+      uuid: process.env.UUID,
+      sessionID: process.env.sessionID,
+      count: 1
+    };
     cloud_ws.send(
-      JSON.stringify({
-        type: "getNeighbours",
-        uuid: process.env.UUID,
-        count: 5
-      })
+      JSON.stringify(json_message)
     );
   });
 }
 export function registerServices(services) {
   return new Promise(function (resolve, reject) {
     //register ~3 services
+    let json_message: itf.cld_edge_services = {
+      type: "services",
+      uuid: process.env.UUID,
+      sessionID: process.env.sessionID,
+      services: services,
+      gps: {
+        // lat: Math.random() * 50 + 20,
+        // lon: Math.random() * 50 + 20
+        lat: process.env.lat,
+        lon: process.env.lon
+      }
+    }
     cloud_ws.send(
-      JSON.stringify({
-        type: "services",
-        uuid: process.env.UUID,
-        services: services,
-        gps: {
-          lat: process.env.lat,
-          lon: process.env.lon
-        }
-      })
+      JSON.stringify(json_message)
     );
   });
 }
-function socketRecieveData(data) {
-  //whatever processing you might need
-  console.log("socketRecieveData");
-}
+

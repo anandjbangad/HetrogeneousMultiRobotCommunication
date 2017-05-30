@@ -1,0 +1,27 @@
+node1 ansible_ssh_host=10.0.10.240 ansible_ssh_user=nvidia ansible_ssh_pass=nvidia ansible_sudo_pass=nvidia ansible_user=nvidia ansible_pass=nvidia
+node2 ansible_ssh_host=10.0.10.241 ansible_ssh_user=user ansible_ssh_pass=caslabnode2 ansible_sudo_pass=caslabnode2
+
+
+iot1 ansible_ssh_host=10.0.10.244  
+
+#middleware is group
+[middleware]
+node1
+node2
+
+[iot]
+iot1
+
+#alldevices is group of groups
+[alldevices:children]
+middleware
+iot
+
+#set default variables for iot group
+[iot:vars]
+ansible_ssh_user=user
+ansible_ssh_pass=caslabpasswd
+
+[alldevices:vars]
+ansible_python_interpreter=/usr/bin/python2.7
+
