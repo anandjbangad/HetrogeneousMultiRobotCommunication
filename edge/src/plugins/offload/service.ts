@@ -4,7 +4,7 @@ import { Device, NodeList } from "../../storage.js";
 import os = require("../../os.js");
 
 import { cpuPercent, freeMem } from "../../os.js";
-import { cloudSendData } from "../../ws/cloud_client.js";
+import { cloudSendData, cloudSendDataAmqp } from "../../ws/cloud_client.js";
 import fs = require("fs");
 import neigh = require("../../neighbors.js");
 import Tesseract = require("tesseract.js");
@@ -121,8 +121,17 @@ export function offload(globalCtx) {
     // if on cloud --> call remote offload offload service
 
     //execute taks locally only
-    let num: number = 0;
-    if (message.ttl == 0) {
+    let num: number = Math.floor(Math.random() * 3);
+
+    message.payload = message.payload + ' E(' + process.env.IP_ADDR + ')';
+
+    // if (globalCtx.seneca.cloudInitDone === true) {
+    //   num = 2;
+    // } else {
+    //   num = 1;
+    // }
+    // num = 0;
+    if (message.ttl <= 0) {
       num = 1;
     }
     message.ttl = message.ttl - 1;
@@ -130,14 +139,14 @@ export function offload(globalCtx) {
       //    switch (++options.counter % 3) { 
       case 0:
         console.log("Msg Rcvd: offload to neighbor");
-        message.payload = message.payload + ' E(' + os.getIpAddr().split(".")[3] + ')';
+        //message.payload = message.payload + ' E(' + os.getIpAddr().split(".")[3] + ')';
 
-
+        message.payload = message.payload + ' N ';
         console.log(neigh.Neighbors.getInstance().getAllNeighbor()[0].ipAddr);
         //neigh.Neighbors.getInstance().getAllNeighbor()[0].test();
         //correct ctx in neighborsenddata since called from neighbor class
         for (let curNeigh of neigh.Neighbors.getInstance().getAllNeighbor()) {
-          curNeigh.neighborSendData(message, function (result: itf.i_edge_rsp) {
+          curNeigh.neighborSendDataAmqp(message, function (result: itf.i_edge_rsp) {
             done(null, result);
           });
         }
@@ -170,7 +179,7 @@ export function offload(globalCtx) {
         console.log("Msg Rcvd: offload to cloud");
         //onCloud
         //if(options.globalCtx.isCloudAlive === true){}
-        cloudSendData(message, function (result: itf.i_edge_rsp) {
+        cloudSendDataAmqp(message, globalCtx, function (result: itf.i_edge_rsp) {
           //console.log("Msg replied from cloud" + result);
           done(null, result);
         });

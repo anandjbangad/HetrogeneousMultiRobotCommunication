@@ -44,6 +44,7 @@ startMonitoring();
 import mdns = require("mdns");
 import Chairo = require("chairo");
 import Hapi = require("hapi");
+import { edge_init } from "./ws/edge_server.js"
 
 //import rest_routes = require("./api.js");
 
@@ -79,20 +80,14 @@ server.register({ register: Chairo }, function (err) {
   server.seneca.act({ generate: "id" }, function (err, result) {
     // result: { id: 1 }
   });
-  console.log("0");
-  // start cloud client and edge server after middleware is initialized
-  try {
-    cloud_client.init(globalCtx);
-  } catch (e) {
-    console.log(e);
-  }
-  //.then(cloud_client.registerServices)
 
-  var edge_server = require("./ws/edge_server.js").edge_server(server.seneca); //executing constructor
+  //var edge_server = require("./ws/edge_server.js").edge_init(server.seneca); //executing constructor
 
   // Register all microservices plugins with seneca object
   server.seneca.use(rest_service.rest, {});
   globalCtx.counter = 0;
+  globalCtx.seneca = server.seneca
+  globalCtx.cloudInitDone = false;
   server.seneca.use(core_service.core, globalCtx);
   server.seneca.use(offload_service.offload, globalCtx);
   server.seneca.use(vision_service.vision, globalCtx);
@@ -108,6 +103,15 @@ server.register({ register: Chairo }, function (err) {
     if (err) throw err;
     console.log("Server is running at", server.info.uri);
     startAnnouncements();
+
+    // start cloud client and edge server after middleware is initialized
+    try {
+      cloud_client.init(globalCtx);
+    } catch (e) {
+      console.log(e);
+    }
+    //.then(cloud_client.registerServices)
+    edge_init(globalCtx.seneca);
 
   });
 });

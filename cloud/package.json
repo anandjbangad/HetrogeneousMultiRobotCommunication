@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "amqplib": "^0.5.1",
     "chairo": "^3.0.0",
     "dns-discovery": "^5.6.0",
     "dotenv": "^4.0.0",

@@ -6,6 +6,7 @@ import rbush = require("rbush");
 import knn = require("rbush-knn");
 import * as itf from "../../common/interfaces.d"
 import { Task3, visionTask1 } from "./task"
+import amqp = require('amqplib');
 
 
 import { Server as WebSocketServer } from "ws";
@@ -41,7 +42,7 @@ nodeListSchema.methods.print = function () {
 //get model
 var NodeList = cloudDB.model("NodeList", nodeListSchema);
 //clean db
-NodeList.collection.drop();
+//NodeList.collection.drop();
 // NodeList.remove({}, function () {
 //   console.log("Nodelist db cleaned");
 // });
@@ -63,6 +64,31 @@ const interval = setInterval(function ping() {
     ws.ping('', false, true);
   });
 }, 10000);
+
+amqp.connect('amqp://localhost')
+  .then((conn) => {
+    return conn.createChannel();
+  })
+  .then((ch) => {
+    var q = 'c_task1_req';
+    ch.assertQueue(q, { durable: false });
+
+    console.log(" [*] Waiting for messages in %s. To exit press CTRL+C", q);
+    ch.consume(q, (msg) => {
+      console.log(" [x] Received %s", msg.content.toString());
+      ch.assertQueue(msg.properties.replyTo, { durable: false });
+      console.log("reply to ", msg.properties.replyTo);
+
+      let message: itf.i_edge_req = JSON.parse(msg.content);
+      Task3(message)
+        .then((edge_rsp: itf.i_edge_rsp) => {
+          ch.sendToQueue(msg.properties.replyTo, Buffer.from(JSON.stringify(edge_rsp)), { correlationId: msg.properties.correlationId });
+        });
+    }, { noAck: true });
+  })
+  .catch((err) => {
+    console.log(err);
+  })
 
 wss.on("connection", function connection(ws) {
   console.log("\n\nsomeone trying to connect from " + JSON.stringify(getRemoteIPInfoOnServer(ws)));

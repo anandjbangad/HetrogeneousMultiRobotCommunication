@@ -62,8 +62,8 @@ export function vision(globalCtx) {
     this.add({ role: 'visionRequest', cmd: 'Task3' }, function (message: itf.i_edge_req, done) {
         let rsp: itf.i_edge_rsp = {
             type: message.type,
-            result: message.payload + ' E(' + os.getIpAddr().split(".")[3] + ')',
-            // result: message.payload + ' E',
+            //result: message.payload + ' E(' + os.getIpAddr().split(".")[3] + ')',
+            result: message.payload,
             cmd_id: message.cmd_id,
             task_id: message.task_id,
             ttl: message.ttl   //ttl already reduces in offload module

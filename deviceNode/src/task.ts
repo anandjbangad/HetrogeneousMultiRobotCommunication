@@ -3,7 +3,7 @@ import fs = require("fs");
 import * as itf from "../../common/interfaces.d"
 
 var delay_bw_images = 3000;
-export function task2(ws, globalCtx) {
+export function task2(globalCtx) {
     console.log(this);
     setInterval(() => {
         let edge_req: itf.e_edge_req = {
@@ -11,7 +11,7 @@ export function task2(ws, globalCtx) {
             type: "devmsg",
             payload: "",
         }
-        ws.send(JSON.stringify(edge_req));
+        globalCtx.amqp.ch.sendToQueue('d_task1_req', Buffer.from(JSON.stringify(edge_req)));
         globalCtx.req_count++;
     }, 100)
 }

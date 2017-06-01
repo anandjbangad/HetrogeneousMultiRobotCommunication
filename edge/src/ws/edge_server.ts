@@ -1,14 +1,93 @@
 import { Neighbors } from "../neighbors"
 import * as itf from '../../../common/interfaces.d'
+import amqp = require('amqplib');
 let myNeighbors = Neighbors.getInstance();
 interface deviceClient {
   ipAddr: string;
   port: number;
 }
 let clientList: deviceClient[];
-export function edge_server(seneca) {
+var msg_count = 0;
+function onMessage(seneca, json_message, ch) {
+  console.log('---->New Msg/Req received on EDGE Server AMQP', ++msg_count);
+  let message: any = JSON.parse(json_message.content);
+  let msg: itf.i_edge_req;
+  if (typeof (message["cmd_id"]) === "undefined") {
+    msg = {
+      payload: message.payload,
+      cmd_id: 0,
+      type: message.type,
+      ttl: 1,
+      task_id: message.task_id
+    };
+  } else {
+    msg = {
+      payload: message.payload,
+      cmd_id: message.cmd_id,
+      type: message.type,
+      ttl: message.ttl,
+      task_id: message.task_id
+    };
+  }
+  seneca.act({ role: "offloadRequest", cmd: "taskScheduler" }, msg, (
+    err,
+    reply: itf.i_edge_rsp
+  ) => {
+    //console.error("got reply on edge_server..ready to send" + reply.result);
+    // if future seperate internal and external rsp
+    let json_message_out: itf.i_edge_rsp = {
+      result: reply.result,
+      type: "result",
+      task_id: reply.task_id,
+      ttl: reply.ttl,
+      cmd_id: reply.cmd_id
+    };
+    if (typeof json_message.properties.replyTo !== 'undefined') {
+      ch.sendToQueue(json_message.properties.replyTo, Buffer.from(JSON.stringify(json_message_out)), {
+        correlationId: json_message.properties.correlationId
+      });
+    } else {
+      ch.sendToQueue('d_task1_rsp', Buffer.from(JSON.stringify(json_message_out)));
+    }
+  });
+}
+export function edge_init(seneca) {
   console.log("Edge port is " + process.env.EDGE_PORT);
   var jwt = require("jsonwebtoken");
+  //start consuming rabbitmq server
+  amqp.connect('amqp://localhost')
+    .then((conn) => {
+      return conn.createChannel();
+    })
+    .then((ch) => {
+      var q = 'd_task1_req';
+      ch.assertQueue(q, { durable: false });
+      ch.assertQueue('d_task1_rsp', { durable: false });
+      console.log(" [*] Waiting for messages in %s. To exit press CTRL+C", q);
+      ch.consume(q, (msg) => {
+        console.log(" [x] Received %s", msg.content.toString());
+        // ch.sendToQueue('d_task1_rsp', Buffer.from(JSON.stringify({
+        //   result: "happy",
+        //   type: "result",
+        //   task_id: 0,
+        //   ttl: 0,
+        //   cmd_id: 0
+        // })));
+        onMessage(seneca, msg, ch);
+      }, { noAck: true });
+
+      //pubsub
+      var ex = "os_env";
+      var msg = "this is testing";
+      ch.assertExchange(ex, 'fanout', { durable: false });
+      setInterval(() => {
+        ch.publish(ex, '', new Buffer(msg));
+        console.log(" [x] Sent %s", msg);
+      }, 500);
+    })
+    .catch((err) => {
+      console.log(err);
+    })
   var WebSocketServer = require("ws").Server,
     wss = new WebSocketServer({
       port: process.env.EDGE_PORT
@@ -33,7 +112,7 @@ export function edge_server(seneca) {
     console.log(" from ", ws.upgradeReq.url.split("/").slice(1)[0], ws._socket.remotePort);
     ws.on("message", function incoming(json_message) {
 
-      console.log('---->New Msg/Req received on EDGE Server');
+      console.log('---->New Msg/Req received on EDGE Server', ++msg_count);
       let message: any = JSON.parse(json_message);
       let msg: itf.i_edge_req;
       if (typeof (message["cmd_id"]) === "undefined") {
