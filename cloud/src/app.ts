@@ -64,12 +64,14 @@ const interval = setInterval(function ping() {
     ws.ping('', false, true);
   });
 }, 10000);
+let amqpCloud: any = {};
 
 amqp.connect('amqp://localhost')
   .then((conn) => {
     return conn.createChannel();
   })
   .then((ch) => {
+    amqpCloud.ch = ch;
     var q = 'c_task1_req';
     ch.assertQueue(q, { durable: false });
 
@@ -85,6 +87,16 @@ amqp.connect('amqp://localhost')
           ch.sendToQueue(msg.properties.replyTo, Buffer.from(JSON.stringify(edge_rsp)), { correlationId: msg.properties.correlationId });
         });
     }, { noAck: true });
+  })
+  .then(() => {
+    //pubsub
+    var ex = "os_env_cloud";
+    var msg = "this is testing in cloud";
+    amqpCloud.ch.assertExchange(ex, 'fanout', { durable: false });
+    setInterval(() => {
+      amqpCloud.ch.publish(ex, '', new Buffer(msg));
+      console.log(" [x] Sent from Cloud %s", msg);
+    }, 1500);
   })
   .catch((err) => {
     console.log(err);

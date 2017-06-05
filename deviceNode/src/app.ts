@@ -10,10 +10,13 @@ var client = new Client();
 import * as itf from "../../common/interfaces.d"
 import jwt = require('jsonwebtoken');
 import amqp = require('amqplib');
+import { startCharting } from "./charts/server"
+import * as myTask from "./task"
 
 var globalCtx: any = {};
 globalCtx.req_count = 0;
 globalCtx.rsp_count = 0;
+myTask.taskInit(globalCtx);
 // direct way
 // set content-type header and data as json in args parameter 
 var args = jwt.sign({
@@ -58,11 +61,12 @@ amqp.connect('amqp://' + process.env.EDGE_HOST)
     })
     .then((q) => {
         console.log(" [*] Waiting for messages in %s. To exit press CTRL+C");
-        return globalCtx.amqp.ch.consume('d_task1_rsp', (json_message) => {
-            //console.log(" [x] Received %s", msg.content.toString());
-            let message: itf.e_edge_rsp = JSON.parse(json_message.content);
-            console.log("Device Client:", ++globalCtx.rsp_count, "/", globalCtx.req_count, message.result);
-        }, { noAck: true });
+        // return globalCtx.amqp.ch.consume('d_task1_rsp', (json_message) => {
+        //     //console.log(" [x] Received %s", msg.content.toString());
+        //     let message: itf.e_edge_rsp = JSON.parse(json_message.content);
+        //     console.log("Device Client:", ++globalCtx.rsp_count, "/", globalCtx.req_count, message.result);
+        // }, { noAck: true });
+        return globalCtx.amqp.ch.consume('d_task1_rsp', myTask.onRsp, { noAck: true });
     })
     .then(() => {
         //start sending requests
@@ -71,6 +75,8 @@ amqp.connect('amqp://' + process.env.EDGE_HOST)
         }, 10000);
         //task1(ws);
         task2(globalCtx);
+        //start plotting charts
+        startCharting();
     })
     .catch((err) => {
         console.log(err);

@@ -8,7 +8,8 @@
         "alwaysStrict": false,
         //"noEmitOnError": true,
         //"noImplicitAny": true,
-        "target": "ES2016"
+        "target": "ES2016",
+        "watch": true
     },
     "exclude": [
         "node_modules",

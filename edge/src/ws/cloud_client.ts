@@ -4,11 +4,25 @@ import WebSocket = require("ws");
 import ipaddr = require('ipaddr.js');
 import * as itf from "../../../common/interfaces.d"
 import amqp = require('amqplib');
+import MA = require('moving-average');
 
-var socketQueueId: number = 0;
-var socketQueue: any = {};
+
+let maCldMsgLatency = MA(5 * 1000); // 5sec
+let maCldCPU = MA(5 * 1000); // 5sec
+let maCldfreemem = MA(5 * 1000); // 5sec
+let maCldMsgCount = MA(5 * 1000); // 5sec
+let socketQueueId: number = 0;
+let socketQueue: any = {};
 
 let cloud_ws;
+function subscribeCloud() {
+  this.amqpNeigh.ch.assertExchange(this.amqpNeigh.exchange.name, 'fanout', { durable: false });
+}
+export function getCldMsgLatency() {
+  return maCldMsgLatency.movingAverage();
+}
+
+let amqpCloud: any = {};
 
 export function init(globalCtx) {
   console.log("Cloud Client init!");
@@ -20,6 +34,7 @@ export function init(globalCtx) {
     .then((ch) => {
       globalCtx.amqpCloud = {};
       globalCtx.amqpCloud.ch = ch;
+      amqpCloud.ch = ch;
       //var q = 'c_task1_req';
       return ch.assertQueue("c_task1_req", { durable: false });
 
@@ -41,9 +56,10 @@ export function init(globalCtx) {
         let cld_msg: itf.i_edge_rsp = JSON.parse(msg.content);
         if (
           typeof msg.properties.correlationId != "undefined" &&
-          typeof socketQueue["i_" + msg.properties.correlationId] == "function"
+          typeof socketQueue["i_" + msg.properties.correlationId] == "object"
         ) {
-          let execFunc = socketQueue["i_" + msg.properties.correlationId];
+          let execFunc = (socketQueue["i_" + msg.properties.correlationId]).retFunc;
+          maCldMsgLatency.push(Date.now(), Date.now() - (socketQueue["i_" + msg.properties.correlationId]).sendTime);
           execFunc(cld_msg);
           delete socketQueue["i_" + msg.properties.correlationId]; // to free up memory.. and it is IMPORTANT thanks  Le Droid for the reminder
           return;
@@ -58,6 +74,21 @@ export function init(globalCtx) {
     })
     .then(() => {
       globalCtx.seneca.cloudInitDone = true;
+      //pub sub
+      amqpCloud.topicExchangeName = "os_env_cloud"
+      amqpCloud.ch.assertExchange(this.amqpNeigh.exchange.name, 'fanout', { durable: false });
+    })
+    .then(() => {
+      return this.amqpNeigh.ch.assertQueue('', { exclusive: true });
+    })
+    .then((q) => {
+      amqpCloud.topicRspQ = q.queue;
+      amqpCloud.ch.bindQueue(amqpCloud.topicRspQ, amqpCloud.topicExchangeName, '');
+    })
+    .then((q) => {
+      amqpCloud.ch.consume(amqpCloud.topicRspQ, function (msg) {
+        console.log("pubsub_ from cloud: [x] %s", msg.content.toString());
+      }, { noAck: true });
     })
     .catch((err) => {
       console.log(err);
@@ -165,7 +196,10 @@ export function cloudSendDataAmqp(data, globalCtx, onReturnFunction) {
   socketQueueId++;
   if (typeof onReturnFunction == "function") {
     // the 'i_' prefix is a good way to force string indices, believe me you'll want that in case your server side doesn't care and mixes both like PHP might do
-    socketQueue["i_" + socketQueueId] = onReturnFunction;
+    socketQueue["i_" + socketQueueId] = {
+      "retFunc": onReturnFunction,
+      "sendTime": Date.now()
+    };
   }
   let jsonData: itf.i_edge_req = {
     type: "msg",

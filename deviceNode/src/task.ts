@@ -1,6 +1,14 @@
 import path = require('path');
 import fs = require("fs");
 import * as itf from "../../common/interfaces.d"
+import MA = require('moving-average');
+
+
+var ma = MA(5 * 1000); // 5sec
+export const taskInit = (global) => {
+    this.globalCtx = {};
+    this.globalCtx = global;
+}
 
 var delay_bw_images = 3000;
 export function task2(globalCtx) {
@@ -13,7 +21,17 @@ export function task2(globalCtx) {
         }
         globalCtx.amqp.ch.sendToQueue('d_task1_req', Buffer.from(JSON.stringify(edge_req)));
         globalCtx.req_count++;
-    }, 100)
+    }, 50)
+}
+export const onRsp = (json_message) => {
+    ma.push(Date.now(), Math.random() * 500);
+    //console.log(" [x] Received %s", msg.content.toString());
+    let message: itf.e_edge_rsp = JSON.parse(json_message.content);
+    console.log('moving average now is', ma.movingAverage());
+    console.log("Device Client:", ++this.globalCtx.rsp_count, "/", this.globalCtx.req_count, message.result);
+}
+export const getMovingAverage = () => {
+    return ma.movingAverage();
 }
 export function task1(ws) {
     let genObj = walkSync(path.join(__dirname, '../../dataset'));

@@ -40,6 +40,7 @@ import { cleandb } from "./storage.js";
 cleandb();
 import { startMonitoring } from "./os.js";
 startMonitoring();
+import { startCharting } from "./charts/server"
 
 import mdns = require("mdns");
 import Chairo = require("chairo");
@@ -112,6 +113,8 @@ server.register({ register: Chairo }, function (err) {
     }
     //.then(cloud_client.registerServices)
     edge_init(globalCtx.seneca);
+
+    startCharting();
 
   });
 });

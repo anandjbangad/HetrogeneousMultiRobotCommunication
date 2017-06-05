@@ -68,7 +68,10 @@ export function vision(globalCtx) {
             task_id: message.task_id,
             ttl: message.ttl   //ttl already reduces in offload module
         }
-        done(null, rsp)
+        //takes .5sec to complete task
+        setTimeout(() => {
+            done(null, rsp);
+        }, 500)
     });
     return 'vision';
 }
