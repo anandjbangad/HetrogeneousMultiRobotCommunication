@@ -5,9 +5,8 @@ export function rest(options) {
   //plugin name (i.e function name or return string) and init: 'plugin name' should be same
   seneca.add({ init: "rest" }, function (args, done) {
     // do stuff, e.g.
-    console.log("connecting to db during initialization...");
     setTimeout(function () {
-      console.log(" DB connected!");
+      console.log(" REST service init done!");
       done();
     }, 1000);
   });

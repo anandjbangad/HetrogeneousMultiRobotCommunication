@@ -1,8 +1,8 @@
-
+import sys = require('util');
 //var app = require('http').createServer(handler);
 //var io = require('socket.io').listen(app);
 //var fs = require('fs');
-var sys = require('util');
+
 var exec = require('child_process').exec;
 var child;
 
@@ -33,9 +33,9 @@ server.io = io;
 
 
 
-import * as myOS from "../os"
-import * as mqStats from "../utils/ms_stats"
-import { getCldMsgLatency } from "../ws/cloud_client"
+import * as myOS from "../../../common/utils/os"
+import * as amqpStats from "../../../common/utils/ms_stats"
+import { getCldMsgLatency, getCldTopics } from "../ws/cloud_client"
 import { getProcessedMsgCount } from "../plugins/offload/service"
 
 // declare module "*!text" {
@@ -68,7 +68,7 @@ export function startCharting() {
             method: 'GET',
             path: '/socket.io.js',
             handler: {
-                file: '../../node_modules/socket.io-client/socket.io.js'
+                file: '../../../node_modules/socket.io-client/socket.io.js'
             }
         });
         server.route({
@@ -99,7 +99,7 @@ export function startCharting() {
                 throw err;
             }
 
-            console.log('Server running at:', server.info.uri);
+            console.log('Charting Server running at:', server.info.uri);
         });
 
 
@@ -109,14 +109,14 @@ export function startCharting() {
                     if (error !== null) {
                         console.log('exec error: ' + error);
                     } else {
-                        Promise.all([myOS.getCPU(), myOS.getFreeRam(), mqStats.getQueueStats('c_task1_req')]).then(values => {
+                        Promise.all([myOS.getCPU(), myOS.getFreeRam()]).then(values => {
                             // You must send time (X axis) and a temperature value (Y axis)
                             var date = new Date().getTime();
                             var temp = parseFloat(stdout) / 1000;
                             socket.emit('temperatureUpdate', date, temp);
                             socket.emit('cpu', date, values[0]);
                             socket.emit('freemem', date, values[1]);
-                            socket.emit('messages', date, values[2]);
+                            socket.emit('messages', date, (typeof getCldTopics() === 'undefined') ? 0 : getCldTopics().msgCount);
                             socket.emit('cld_latency', date, getCldMsgLatency());
                             socket.emit('processed_msgs', date, getProcessedMsgCount());
                         })

@@ -1,6 +1,6 @@
 import fs = require('fs');
 import Tesseract = require('tesseract.js')
-import os = require("../../os.js");
+import os = require("../../../../common/utils/os.js");
 import * as itf from "../../../../common/interfaces.d"
 
 export function vision(globalCtx) {
@@ -9,9 +9,8 @@ export function vision(globalCtx) {
     //plugin name (i.e function name or return string) and init: 'plugin name' should be same
     seneca.add({ init: 'vision' }, function (msg, done) {
         // do stuff, e.g.
-        console.log('connecting to db during initialization...')
         setTimeout(function () {
-            console.log(' vision api init done!')
+            console.log(' vision api service init done!')
             done()
         }, 1000)
     });

@@ -1,10 +1,10 @@
 //offload.js
 
 import { Device, NodeList } from "../../storage.js";
-import os = require("../../os.js");
+import os = require("../../../../common/utils/os.js");
 
-import { cpuPercent, freeMem } from "../../os.js";
-import { cloudSendData, cloudSendDataAmqp } from "../../ws/cloud_client.js";
+
+import { cloudSendDataAmqp } from "../../ws/cloud_client.js";
 import fs = require("fs");
 import neigh = require("../../neighbors.js");
 import Tesseract = require("tesseract.js");
@@ -26,9 +26,8 @@ export function offload(globalCtx) {
   //plugin name (i.e function name or return string) and init: 'plugin name' should be same
   seneca.add({ init: "offload" }, function (msg, done) {
     // do stuff, e.g.
-    console.log("connecting to db during initialization...");
     setTimeout(function () {
-      console.log(" DB connected!");
+      console.log(" OFFload Service init done!");
       done();
     }, 1000);
   });

@@ -35,3 +35,12 @@ export interface cld_edge_getNeighbors {
     sessionID: number,
     count: number
 }
+export interface cld_publish_topics {
+    cpu: number,
+    freemem: number,
+    msgCount: number
+}
+
+export interface test {
+    test: number
+}

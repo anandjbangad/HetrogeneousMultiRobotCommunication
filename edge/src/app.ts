@@ -1,3 +1,7 @@
+import { config } from "dotenv";
+import Debug = require("debug");
+
+let debug = Debug("app_edge");
 const path = require('path');
 // console.log(path.join(__dirname, '../.env'));
 // const replace = require('replace-in-file');
@@ -24,28 +28,29 @@ const path = require('path');
 //   console.error('Error occurred:', error);
 // }
 
-import { config } from "dotenv";
-//config({ path: "../.env" });
-config({ path: path.join(__dirname, '../.env') });
 
+//config({ path: "../.env" });
+config({ path: path.join(__dirname, '../../../.env') });
+debug("Edge port is " + process.env.EDGE_PORT);
 //const easyMonitor = require("easy-monitor");
 //easyMonitor("edgeNode");
 
 if (!process.env.UUID) {
   process.env.UUID = require("uuid/v4")();
-  console.log("New UUID for edge is " + process.env.UUID);
+  debug("New UUID for edge is " + process.env.UUID);
 }
 
 import { cleandb } from "./storage.js";
 cleandb();
-import { startMonitoring } from "./os.js";
-startMonitoring();
+import { startOSMonitoring } from "./../../common/utils/os";
+import { startMonitoringQueueStats } from "./../../common/utils/ms_stats";
+
 import { startCharting } from "./charts/server"
 
 import mdns = require("mdns");
 import Chairo = require("chairo");
 import Hapi = require("hapi");
-import { edge_init } from "./ws/edge_server.js"
+import { edgeStartConsuming, establishRMBLocalConnection, startPublishingLocalTopics } from "./ws/edge_server.js"
 
 //import rest_routes = require("./api.js");
 
@@ -62,7 +67,7 @@ import rest_api = require('./plugins/rest/api.js');
 import vision_api = require('./plugins/vision/api.js');
 import vision_service = require("./plugins/vision/service.js");
 import neighbor_service = require("./neighbors.js");
-import cloud_client = require("./ws/cloud_client.js"); //executing constructor
+import { establishRMBCloudConnection, webSocketCloudConn, subscribeCloudTopics, cloudRMQRspQSetup } from "./ws/cloud_client.js"; //executing constructor
 
 var globalCtx: any = {};
 
@@ -92,32 +97,74 @@ server.register({ register: Chairo }, function (err) {
   server.seneca.use(core_service.core, globalCtx);
   server.seneca.use(offload_service.offload, globalCtx);
   server.seneca.use(vision_service.vision, globalCtx);
-  server.seneca.use(neighbor_service.neighbors, globalCtx);
+  //server.seneca.use(neighbor_service.neighbors, globalCtx);
 
   //This maps all HTTP methods against microservices
   //server.route(rest_routes);
   server.route(rest_api);
   server.route(vision_api);
+  function startLocal() {
+    return new Promise(function (resolve, reject) {
+      startOSMonitoring(); //nearly synchronous
+      startMonitoringQueueStats('d_task1_req'); //assume synchronous
+      establishRMBLocalConnection()
+        .then((res) => {
+          startPublishingLocalTopics();
+          debug("Local setup done");
+          resolve();
+        })
+        .catch((err) => {
+          debug(err);
+          reject(err);
+        })
+    });
+  }
+  //startLocal();
+  function startCloud() {
+    return new Promise(function (resolve, reject) {
+      establishRMBCloudConnection()
+        .then((res) => {
+          return Promise.all([subscribeCloudTopics(), cloudRMQRspQSetup()])
+        })
+        .then(() => {
+          debug("Cloud Ready!!")
+          resolve();
+        })
+        .catch((err) => {
+          debug(err);
+          reject(err);
+        });
+    })
+  };
 
-  // start the server
-  server.start(function (err) {
-    if (err) throw err;
-    console.log("Server is running at", server.info.uri);
-    startAnnouncements();
 
-    // start cloud client and edge server after middleware is initialized
-    try {
-      cloud_client.init(globalCtx);
-    } catch (e) {
-      console.log(e);
-    }
-    //.then(cloud_client.registerServices)
-    edge_init(globalCtx.seneca);
+  //startCloud();
 
-    startCharting();
+  function startSenecaServer() {
+    return new Promise(function (resolve, reject) {
+      // start the server
+      server.start(function (err) {
+        if (err) throw err;
+        debug("Server is running at", server.info.uri);
+        //startAnnouncements();
 
-  });
+        // start cloud client and edge server after middleware is initialized
+        //here cloud init used to be
+
+        //.then(cloud_client.registerServices)
+        resolve();
+      });
+    });
+  }
+  Promise.all([startSenecaServer(), startCloud(), startLocal()])
+    .then((values) => {
+      edgeStartConsuming(server.seneca);
+      startCharting();
+    });
+  //establish websocket connection to cloud
+  webSocketCloudConn();
 });
+
 
 function local() {
   this.add("cmd:run", function (msg, done) {

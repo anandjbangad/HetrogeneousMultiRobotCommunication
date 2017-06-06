@@ -30,6 +30,6 @@
     "ts-node": "^3.0.2"
   },
   "scripts": {
-    "html": "copyfiles -u 1 src/**/*.html src/**/*.css built/"
+    "html": "copyfiles -u 0 src/**/*.html src/**/*.css built/edge/"
   }
 }

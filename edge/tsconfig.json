@@ -8,15 +8,16 @@
         "alwaysStrict": false,
         //"noEmitOnError": true,
         //"noImplicitAny": true,
-        "target": "ES2016",
-        "watch": true
+        "target": "ES2016"
+        //"watch": true
     },
     "exclude": [
         "node_modules",
         "**/*.spec.ts"
     ],
     "include": [
-        "./src/**/*"
+        "./src/**/*",
+        "../common/**/*"
     ],
     "typeAcquisition": {
         "include": [

@@ -2,9 +2,11 @@ import ping = require('ping');
 import WebSocket = require('ws');
 import ipaddr = require('ipaddr.js');
 import * as itf from "../../common/interfaces.d"
-//import amqp = require('amqplib/callback_api');
 import amqp = require('amqplib');
+import MA = require('moving-average');
 
+import Debug = require("debug");
+let debug = Debug("neighbors");
 
 export class gps {
     lat: Number;
@@ -17,46 +19,50 @@ export class gps {
         return "lat:" + this.lat + " lon:" + this.lon;
     }
 }
-
 export class Neighbor {
     gps: gps;
     ipAddr: String;
     services: String[];
-    neighws: any;
-    static seneca: any;
     socketQueueId: number;
     socketQueue: any;
     amqpNeigh: any;
+    maNeighMsgLatency: any;
+    isReady: boolean;
 
     constructor(gps, ipAddr) {
+        this.isReady = false;
+        this.maNeighMsgLatency = MA(5 * 1000); // 5sec
         this.amqpNeigh = {};
+        this.socketQueueId = 0;
+        this.socketQueue = {};
+        this.gps = gps;
+        this.ipAddr = ipAddr;
         //establish rabbitmq connection
         amqp.connect('amqp://' + ipaddr.process(ipAddr))
             .then((conn) => {
-                this.amqpNeigh.Conn = conn;
                 return conn.createChannel();
             })
             .then((ch) => {
                 this.amqpNeigh.ch = ch;
-                this.amqpNeigh.reqQ = 'd_task1_req';
-
-                return ch.assertQueue(this.amqpNeigh.reqQ, { durable: false });
+                return ch.assertQueue('d_task1_req', { durable: false });
             })
             .then((q) => {
-                this.amqpNeigh.reqQ = q.queue;
+                this.amqpNeigh.sendReqQ = q.queue;
                 return this.amqpNeigh.ch.assertQueue(process.env.UUID + '_neigh', { durable: false });
             })
             .then((q) => {
                 this.amqpNeigh.rspQ = q.queue;
-                this.amqpNeigh.ch.consume(this.amqpNeigh.rspQ, (msg) => {
-                    console.log("neigh recvd: [x] %s", msg.content.toString());
+                return this.amqpNeigh.ch.consume(this.amqpNeigh.rspQ, (msg) => {
+                    console.log("-->neigh recvd: [x] %s", msg.content.toString());
                     //check correlation-id from map
                     let neigh_msg: itf.i_edge_rsp = JSON.parse(msg.content);
                     if (
                         typeof msg.properties.correlationId != "undefined" &&
-                        typeof this.socketQueue["i_" + msg.properties.correlationId] == "function"
+                        typeof this.socketQueue["i_" + msg.properties.correlationId] == "object"
                     ) {
-                        let execFunc = this.socketQueue["i_" + msg.properties.correlationId];
+                        let execFunc = this.socketQueue["i_" + msg.properties.correlationId].retFunc;
+                        // update moving avg
+                        this.maNeighMsgLatency.push(Date.now(), Date.now() - (this.socketQueue["i_" + msg.properties.correlationId]).sendTime);
                         execFunc(neigh_msg);
                         delete this.socketQueue["i_" + msg.properties.correlationId]; // to free up memory.. and it is IMPORTANT thanks  Le Droid for the reminder
                         return;
@@ -64,88 +70,38 @@ export class Neighbor {
                         console.log("socketRecieveData", neigh_msg.result);
                     }
                 }, { noAck: true });
+            }).then(() => {
                 //pubsub
-                this.amqpNeigh.exchange = {}
-                this.amqpNeigh.exchange.name = "os_env";
-                return this.amqpNeigh.ch.assertExchange(this.amqpNeigh.exchange.name, 'fanout', { durable: false });
+                this.amqpNeigh.topicExchange = {}
+                this.amqpNeigh.topicExchange.name = "os_env";
+                return this.amqpNeigh.ch.assertExchange(this.amqpNeigh.topicExchange.name, 'fanout', { durable: false });
             })
             .then((q) => {
                 return this.amqpNeigh.ch.assertQueue('', { exclusive: true });
             })
             .then((q) => {
-                this.amqpNeigh.exchange.Q = q.queue;
-                console.log(" [*] Waiting for messages in %s. To exit press CTRL+C", q.queue);
-                this.amqpNeigh.ch.bindQueue(q.queue, this.amqpNeigh.exchange.name, '');
+                this.amqpNeigh.topicExchange.rspQ = q.queue;
+                return this.amqpNeigh.ch.bindQueue(this.amqpNeigh.topicExchange.rspQ, this.amqpNeigh.topicExchange.name, '');
             })
             .then((q) => {
-                this.amqpNeigh.ch.consume(this.amqpNeigh.exchange.Q, function (msg) {
-                    console.log("pubsub: [x] %s", msg.content.toString());
+                return this.amqpNeigh.ch.consume(this.amqpNeigh.topicExchange.rspQ, function (msg) {
+                    this.ampNeigh.topicsUpdateMsg = <itf.cld_publish_topics>JSON.parse(msg.content);
+                    console.log("pubsub: [x] %s", msg.content.toString(), msg.content.msgCount.messages);
                 }, { noAck: true });
+            })
+            .then((q) => {
+                debug("Neighbor is ready!")
+                this.isReady = true;
             })
             .catch((err) => {
                 console.log(err);
             });
-        this.socketQueueId = 0;
-        this.socketQueue = {};
-        this.gps = gps;
-        this.ipAddr = ipAddr;
-        this.neighwsOpenHandler = this.neighwsOpenHandler.bind(this);
-        //this.neighborSendData = this.neighborSendData.bind(this);
-        this.neighwsMsgHandler = this.neighwsMsgHandler.bind(this);
-        //check if this ipAddr is already in neighors array
-        //only add neighbor if its absent in array
-        //this.neighws = new WebSocket('ws://' + ipAddr + ':' + process.env.EDGE_PORT + '/edge_server');
-        // this.neighws = new WebSocket('ws://' + ipaddr.process(ipAddr) + ':' + process.env.EDGE_PORT + '/edge_server');
-        // //this.neighws.on('open', this.neighwsOpenHandler);
-        // this.neighws.on('open', function open() {
-        //     this.neighws = this;
-        // });
-        // this.neighws.on('message', this.neighwsMsgHandler);
-    }
-    createAmqpConnection(err, conn) {
 
-    }
-    neighwsOpenHandler(ipAddr) {
-        //console.log("I am a edge node send msg", this.neighws.upgradeReq.url);
-        //this.neighws.send('I am a edge Node');
-        console.log("Connection established with edge node " + this.ipAddr);
-        // this.neighborSendData(1, function () {
-        //     console.log("everything done");
-        // })
-    }
-    neighwsMsgHandler(message, flags) {
-        let data: itf.i_edge_rsp = JSON.parse(message);
-        // only resuts msg will be coming here
-        //console.log("**Result Message received from neighbor:");
-        if (
-            typeof data["cmd_id"] != "undefined" &&
-            typeof this.socketQueue["i_" + data["cmd_id"]] == "function"
-        ) {
-            let execFunc = this.socketQueue["i_" + data["cmd_id"]];
-            execFunc(data);
-            delete this.socketQueue["i_" + data["cmd_id"]]; // to free up memory.. and it is IMPORTANT thanks  Le Droid for the reminder
-            return;
-        } else {
-            console.error("Error inside neighbor socket logic!!");;
-        }
-        //process t
-        //don't offload to any other node since ttl=1 assumed
-
-        // this.seneca.act(
-        //     { role: "visionRequest", cmd: "visionTask1" },
-        //     message,
-        //     function (err, reply) {
-        //         //message.msg is image/txt
-        //         //console.log(reply.result);
-        //         this.neighws.send(reply);
-        //     }
-        // );
     }
     toString() {
         return 'Neighbour with ' + this.gps.toString() + " " + this.ipAddr;
     }
     setServices(services) {
-
         this.services = services;
     }
     neighborSendDataAmqp(data: itf.i_edge_req, onReturnFunction) {
@@ -173,35 +129,6 @@ export class Neighbor {
             console.error("Sending failed ... .disconnected failed");
         }
     }
-    neighborSendData(data: itf.i_edge_req, onReturnFunction) {
-        //console.log("Neighbor Send Data invoked!!! to ");
-        this.socketQueueId++;
-        if (typeof onReturnFunction == "function") {
-            // the 'i_' prefix is a good way to force string indices, believe me you'll want that in case your server side doesn't care and mixes both like PHP might do
-            this.socketQueue["i_" + this.socketQueueId] = onReturnFunction;
-        }
-        let jsonData: itf.i_edge_req = {
-            type: "neighmsg",
-            cmd_id: this.socketQueueId,
-            payload: data.payload,
-            ttl: data.ttl,
-            task_id: data.task_id
-        };
-
-        try {
-            this.amqpNeigh.ch.assertQueue(this.amqpNeigh.reqQ, { durable: false });
-            this.amqpNeigh.ch.sendToQueue(this.amqpNeigh.reqQ, Buffer.from(JSON.stringify(jsonData)),
-                {
-                    correlationId: this.socketQueueId.toString(),
-                    replyTo: this.amqpNeigh.rspQ
-                });
-        } catch (e) {
-            console.error("Sending failed ... .disconnected failed");
-        }
-    }
-}
-export function neighbors(globalCtx) {
-    Neighbor.seneca = this;
 }
 export class Neighbors {
     private static instance: Neighbors;
@@ -220,7 +147,7 @@ export class Neighbors {
     addNeighbor(lat, lon, ipAddr: string) {
         this.neighbors.push(new Neighbor(new gps(lat, lon), ipAddr));
     }
-    public getAllNeighbor(): Neighbor[] | null {
+    public getAllNeighbor(): Neighbor[] {
         return this.neighbors;
     }
 

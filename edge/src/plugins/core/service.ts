@@ -3,8 +3,8 @@
 import { Device } from "../../storage.js";
 import { NodeList } from "../../storage.js";
 
-import { cpuPercent, freeMem } from "../../os.js";
-import { cloudSendData } from "../../ws/cloud_client.js";
+//import { cpuPercent, freeMem } from "../../../../common/utils/os.js";
+import { cloudSendDataAmqp } from "../../ws/cloud_client.js";
 import fs = require("fs");
 
 import Tesseract = require("tesseract.js");
@@ -14,10 +14,8 @@ export function core(globalCtx) {
   //Plugin Init. Called when plugin is used for first time
   //plugin name (i.e function name or return string) and init: 'plugin name' should be same
   seneca.add({ init: "core" }, function (msg, done) {
-    // do stuff, e.g.
-    console.log("connecting to db during initialization...");
     setTimeout(function () {
-      console.log(" DB connected!");
+      console.log(" Core service init done!");
       done();
     }, 1000);
   });
@@ -99,9 +97,7 @@ export function core(globalCtx) {
       if (err) console.error(err);
       result = {
         ipAddr: doc.ipAddr,
-        services: doc.services,
-        cpu: cpuPercent,
-        mem: freeMem
+        services: doc.services
       };
     });
     done(null, result);
@@ -141,7 +137,7 @@ export function core(globalCtx) {
     } else {
       console.error("exec on cloud");
       //onCloud
-      cloudSendData(message, function (result) {
+      cloudSendDataAmqp(message, function (result) {
         // options.cloud_client.cloudSendData(message, function (result) {
         //message.msg is image/txt
         //console.log("Msg replied from cloud" + result);

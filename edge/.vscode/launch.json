@@ -12,7 +12,16 @@
             "outFiles": [
                 "${workspaceRoot}/built/**/*.js",
                 "${workspaceRoot}/built/app.js"
-            ]
+            ],
+            // Optional arguments passed to the runtime executable.
+            "runtimeArgs": [
+                "--nolazy"
+            ],
+            // Environment variables passed to the program.
+            "env": {
+                "NODE_ENV": "development",
+                "DEBUG": "cloudClient,neighbors,amqpStats,edgeServer,app_edge,topsis"
+            }
         },
         {
             "type": "node",

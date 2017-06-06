@@ -11,8 +11,8 @@ if (!process.env.UUID) {
 
 import { cleandb } from "./storage.js";
 cleandb();
-import { startMonitoring } from "./os.js";
-startMonitoring();
+import { startOSMonitoring } from "./../../common/utils/os.js";
+startOSMonitoring();
 
 import mdns = require("mdns");
 import Chairo = require("chairo");

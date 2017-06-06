@@ -1,4 +1,8 @@
 import neigh = require("../../neighbors.js");
+import { getCldTopics } from "../../ws/cloud_client"
+import * as itf from "../../../../common/interfaces.d"
+import * as os from "../../../../common/utils/os"
+import * as amqpStats from "../../../../common/utils/ms_stats"
 import math = require('mathjs');
 import Debug = require('debug');
 let debug = Debug('topsis');
@@ -7,56 +11,58 @@ let debug = Debug('topsis');
 var lastMsgSentTo: number = 0;
 //debug = function () { }
 export function algoTopsis() {
-
     const m_alternatives = 2 + neigh.Neighbors.getInstance().getAllNeighbor().length;
     const n_criterias = 3;
     var dataset = math.matrix(math.zeros([n_criterias, m_alternatives]));
     //fill first 2 colms
     dataset.forEach(function (value, index, matrix) {
-        switch (index[0]) {
+        switch (index[1]) {
             case 0: //local
-                switch (index[1]) {
+                switch (index[0]) {
                     case 0: //memory
-                        dataset.subset(math.index(index[0], index[1]), 32);
+                        dataset.subset(math.index(index[0], index[1]), os.getFreeRam());
                         break;
                     case 1: //cpu
-                        dataset.subset(math.index(index[0], index[1]), 34);
+                        dataset.subset(math.index(index[0], index[1]), os.getCPUNow());
                         break;
                     case 2: //queued msgs
-                        dataset.subset(math.index(index[0], index[1]), 35);
+                        dataset.subset(math.index(index[0], index[1]), amqpStats.getQueueStats("d_task1_req").messages || 1);
+                        break;
                     default:
                         debug("Unknown criteria in topsis algorithm for local");
                 }
                 break;
             case 1: //cloud
-                switch (index[1]) {
+                let cldTopicRsp: itf.cld_publish_topics = getCldTopics();
+                switch (index[0]) {
                     case 0: //memory
-                        dataset.subset(math.index(index[0], index[1]), 42);
+                        dataset.subset(math.index(index[0], index[1]), cldTopicRsp.freemem);
                         break;
                     case 1: //cpu
-                        dataset.subset(math.index(index[0], index[1]), 47);
+                        dataset.subset(math.index(index[0], index[1]), cldTopicRsp.cpu);
                         break;
-                    case 2:
-                        dataset.subset(math.index(index[0], index[1]), 49);
+                    case 2: //messages
+                        dataset.subset(math.index(index[0], index[1]), cldTopicRsp.msgCount.messages || 1);
+                        break;
                     default:
                         debug("Unknown criteria in topsis algorithm for cloud");
                 }
                 break;
             default: //neigh
-                switch (index[1]) {
+                switch (index[0]) {
                     case 0: //memory
-                        dataset.subset(math.index(index[0], index[1]), 52);
+                        dataset.subset(math.index(index[0], index[1]), neigh.Neighbors.getInstance().getAllNeighbor()[index[1] - 1].amqpNeigh.topicsUpdateMsg.freemem);
                         break;
                     case 1: //cpu
-                        dataset.subset(math.index(index[0], index[1]), 55);
+                        dataset.subset(math.index(index[0], index[1]), neigh.Neighbors.getInstance().getAllNeighbor()[index[1] - 1].amqpNeigh.topicsUpdateMsg.cpu);
                         break;
                     case 2:
-                        dataset.subset(math.index(index[0], index[1]), 59);
+                        dataset.subset(math.index(index[0], index[1]), neigh.Neighbors.getInstance().getAllNeighbor()[index[1] - 1].amqpNeigh.topicsUpdateMsg.msgCount.messages || 1);
+                        break;
                     default:
                         debug("Unknown criteria in topsis algorithm for neighbor");
                 }
                 break;
-
         }
         // //neighbors
         // let votes = math.squeeze(matrix.subset(math.index(index[0], index[1], math.range(0, 3))));
@@ -78,11 +84,11 @@ export function algoTopsis() {
     //weights(nxm)
     var criterions = weights.clone();
 
-    var sumMinMaxDiff = math.zeros(weights.size()[1], 2);
+    var sumMinMaxDiff = math.zeros(weights.size()[1], 2); //cols =2 fixed
     // sumMinMaxDiff(mx2)
     //var minMaxDiff = sumMinMaxDiff.clone();
 
-    var final = math.zeros(sumMinMaxDiff.size()[0]);
+    var final = math.zeros(sumMinMaxDiff.size()[0]); // cols = 2 fixed
     //final(1xm)
 
     // dataset.forEach(function (value, index, matrix) {
@@ -104,13 +110,13 @@ export function algoTopsis() {
     print(criterions);
     for (let n = 0; n != n_criterias; n++) {
         let votes = math.squeeze(criterions.subset(math.index(n, math.range(0, m_alternatives))));
-        print(votes);
+        //print(votes);
         let minVal = 0, maxVal = 0;
         //for each alternative
         for (let m = 0; m != m_alternatives; m++) {
             var value = votes.subset(math.index(m));
             //votes.forEach(function (value, index, matrix) {
-            debug(Math.pow(value - math.min(votes), 2));
+            //debug(Math.pow(value - math.min(votes), 2));
             sumMinMaxDiff.subset(math.index(m, 0), Math.pow(value - math.min(votes), 2) + sumMinMaxDiff.subset(math.index(m, 0)));
             //minVal += Math.pow(value - math.min(matrix), 2);
             sumMinMaxDiff.subset(math.index(m, 1), Math.pow(math.max(votes) - value, 2) + sumMinMaxDiff.subset(math.index(m, 1)));
@@ -127,7 +133,7 @@ export function algoTopsis() {
 
     for (let m = 0; m != m_alternatives; ++m) {
         let votes = math.squeeze(minMaxDiff.subset(math.index(m, math.range(0, 2))));
-        debug(m);
+        //debug(m);
         final.subset(math.index(m), votes.subset(math.index(0)) / math.sum(votes));
     }
     debug("Final is");
@@ -148,5 +154,5 @@ export function algoTopsis() {
      */
 function print(value) {
     var precision = 14;
-    debug(math.format(value, precision));
+    console.log(math.format(value, precision));
 }

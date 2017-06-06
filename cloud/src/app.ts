@@ -7,6 +7,8 @@ import knn = require("rbush-knn");
 import * as itf from "../../common/interfaces.d"
 import { Task3, visionTask1 } from "./task"
 import amqp = require('amqplib');
+import os = require("../../common/utils/os")
+import { getQueueStats, startMonitoringQueueStats } from "../../common/utils/ms_stats"
 
 
 import { Server as WebSocketServer } from "ws";
@@ -64,6 +66,8 @@ const interval = setInterval(function ping() {
     ws.ping('', false, true);
   });
 }, 10000);
+
+startMonitoringQueueStats('c_task1_req');
 let amqpCloud: any = {};
 
 amqp.connect('amqp://localhost')
@@ -91,12 +95,20 @@ amqp.connect('amqp://localhost')
   .then(() => {
     //pubsub
     var ex = "os_env_cloud";
-    var msg = "this is testing in cloud";
+    var msg1 = "this is testing in cloud";
+
     amqpCloud.ch.assertExchange(ex, 'fanout', { durable: false });
     setInterval(() => {
-      amqpCloud.ch.publish(ex, '', new Buffer(msg));
-      console.log(" [x] Sent from Cloud %s", msg);
-    }, 1500);
+      Promise.all([os.getCPU(), getQueueStats("c_task1_req")]).then(values => {
+        let msg = {
+          cpu: values[0] + (Math.random() * 0.1 - 0.05),
+          freemem: os.getFreeRam() + (Math.random() * 0.1 - 0.05),
+          msgCount: values[1]
+        }
+        amqpCloud.ch.publish(ex, '', new Buffer(JSON.stringify(msg)));
+        console.log(" [x] Sent from Cloud %s", msg);
+      })
+    }, process.env.localTopicPublishPeriod);
   })
   .catch((err) => {
     console.log(err);
@@ -270,7 +282,3 @@ wss.on("connection", function connection(ws) {
     }
   });
 });
-
-setInterval(function () {
-
-}, 2000);
