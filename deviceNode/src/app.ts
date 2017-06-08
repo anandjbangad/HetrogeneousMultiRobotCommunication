@@ -18,7 +18,7 @@ globalCtx.req_count = 0;
 globalCtx.rsp_count = 0;
 myTask.taskInit(globalCtx);
 // direct way
-// set content-type header and data as json in args parameter 
+// set content-type header and data as json in args parameter
 var args = jwt.sign({
     data: {
         uri: "hello",
@@ -30,9 +30,9 @@ var args = jwt.sign({
 import WebSocket = require('ws');
 import fs = require("fs");
 // client.post("http://localhost:9081/devices", args, function (data, response) {
-//     // parsed response body as js object 
+//     // parsed response body as js object
 //     //console.log(data);
-//     // raw response 
+//     // raw response
 //     //console.log(response);
 //     console.log("vishu");
 //     var token = data.token;
@@ -41,11 +41,12 @@ import fs = require("fs");
 // call rest api to register Device
 // upon successfull registration, store secret
 // use the secret in websocket communication
-// 
+//
 //console.log("token received is ", data.token);
 //imported from core module
 //import WebSocket = require('ws');
 amqp.connect('amqp://' + process.env.EDGE_HOST)
+    // amqp.connect('amqp://' + "10.0.10.242")
     .then((conn) => {
         return conn.createChannel();
     })

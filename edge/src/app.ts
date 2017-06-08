@@ -63,6 +63,7 @@ import { startAnnouncements } from "./mDNS.js";
 import rest_service = require("./plugins/rest/service.js");
 import core_service = require("./plugins/core/service.js");
 import offload_service = require("./plugins/offload/service.js");
+import { algoTopsisInit } from "./plugins/offload/algo_topsis";
 import rest_api = require('./plugins/rest/api.js');
 import vision_api = require('./plugins/vision/api.js');
 import vision_service = require("./plugins/vision/service.js");
@@ -106,10 +107,12 @@ server.register({ register: Chairo }, function (err) {
   function startLocal() {
     return new Promise(function (resolve, reject) {
       startOSMonitoring(); //nearly synchronous
-      startMonitoringQueueStats('d_task1_req'); //assume synchronous
+
       establishRMBLocalConnection()
         .then((res) => {
           startPublishingLocalTopics();
+          //d_task1_req queue needs to be asserter before starting monitoring
+          startMonitoringQueueStats('d_task1_req'); //assume synchronous
           debug("Local setup done");
           resolve();
         })
@@ -125,6 +128,9 @@ server.register({ register: Chairo }, function (err) {
       establishRMBCloudConnection()
         .then((res) => {
           return Promise.all([subscribeCloudTopics(), cloudRMQRspQSetup()])
+        })
+        .then(() => {
+          return algoTopsisInit();
         })
         .then(() => {
           debug("Cloud Ready!!")

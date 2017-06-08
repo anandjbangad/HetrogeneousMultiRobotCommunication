@@ -38,9 +38,17 @@ export interface cld_edge_getNeighbors {
 export interface cld_publish_topics {
     cpu: number,
     freemem: number,
-    msgCount: number
+    msgCount: number,
+    activeCtx: number
 }
 
-export interface test {
-    test: number
+export interface i_python_rsp {
+    offloadTo: number
+}
+export interface i_python_req {
+    type: string,
+    payload: string,
+    matrix: number[],
+    n_alternatives: number,
+    m_criterias: number
 }

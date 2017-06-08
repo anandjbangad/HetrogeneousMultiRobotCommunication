@@ -33,11 +33,18 @@ export class Neighbor {
         this.isReady = false;
         this.maNeighMsgLatency = MA(5 * 1000); // 5sec
         this.amqpNeigh = {};
+        this.amqpNeigh.topicsUpdateMsg = <itf.cld_publish_topics>{
+            cpu: 0,
+            freemem: 0,
+            msgCount: 0,
+            activeCtx: 0
+        };
         this.socketQueueId = 0;
         this.socketQueue = {};
         this.gps = gps;
         this.ipAddr = ipAddr;
         //establish rabbitmq connection
+        console.log("tyring to connect to ", 'amqp://' + ipaddr.process(ipAddr))
         amqp.connect('amqp://' + ipaddr.process(ipAddr))
             .then((conn) => {
                 return conn.createChannel();
@@ -67,7 +74,7 @@ export class Neighbor {
                         delete this.socketQueue["i_" + msg.properties.correlationId]; // to free up memory.. and it is IMPORTANT thanks  Le Droid for the reminder
                         return;
                     } else {
-                        console.log("socketRecieveData", neigh_msg.result);
+                        console.log("Error: Neigh socketRecieveData", neigh_msg.result);
                     }
                 }, { noAck: true });
             }).then(() => {
@@ -84,13 +91,14 @@ export class Neighbor {
                 return this.amqpNeigh.ch.bindQueue(this.amqpNeigh.topicExchange.rspQ, this.amqpNeigh.topicExchange.name, '');
             })
             .then((q) => {
-                return this.amqpNeigh.ch.consume(this.amqpNeigh.topicExchange.rspQ, function (msg) {
-                    this.ampNeigh.topicsUpdateMsg = <itf.cld_publish_topics>JSON.parse(msg.content);
-                    console.log("pubsub: [x] %s", msg.content.toString(), msg.content.msgCount.messages);
+                return this.amqpNeigh.ch.consume(this.amqpNeigh.topicExchange.rspQ, (msg) => {
+                    this.amqpNeigh.topicsUpdateMsg = <itf.cld_publish_topics>JSON.parse(msg.content);
+                    console.log("pubsub from neigh: [x] %s", msg.content.toString());
                 }, { noAck: true });
             })
             .then((q) => {
-                debug("Neighbor is ready!")
+                console.log("Neighbor is ready!")
+                Neighbors.getInstance().incrementActiveNeighborCount();
                 this.isReady = true;
             })
             .catch((err) => {
@@ -109,7 +117,10 @@ export class Neighbor {
         this.socketQueueId++;
         if (typeof onReturnFunction == "function") {
             // the 'i_' prefix is a good way to force string indices, believe me you'll want that in case your server side doesn't care and mixes both like PHP might do
-            this.socketQueue["i_" + this.socketQueueId] = onReturnFunction;
+            this.socketQueue["i_" + this.socketQueueId] = {
+                "retFunc": onReturnFunction,
+                "sendTime": Date.now()
+            };
         }
         let jsonData: itf.i_edge_req = {
             type: "neighmsg",
@@ -133,9 +144,11 @@ export class Neighbor {
 export class Neighbors {
     private static instance: Neighbors;
     neighbors: Neighbor[];
+    activeNeighbors: number;
 
     private constructor() {
         this.neighbors = [];
+        this.activeNeighbors = 0;
     }
 
     static getInstance() {
@@ -150,7 +163,12 @@ export class Neighbors {
     public getAllNeighbor(): Neighbor[] {
         return this.neighbors;
     }
-
+    public getActiveNeighborCount(): number {
+        return this.activeNeighbors;
+    }
+    public incrementActiveNeighborCount(): void {
+        this.activeNeighbors++;
+    }
     public updateNeighbors(updatedNeighbors) {
         updatedNeighbors.forEach(function (item, index, array) {
             if (!item.ipAddr.includes())

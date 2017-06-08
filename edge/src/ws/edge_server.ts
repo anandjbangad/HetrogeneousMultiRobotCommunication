@@ -6,7 +6,11 @@ import amqp = require('amqplib');
 import Debug = require('debug');
 let debug = Debug('edgeServer');
 
-
+let reqCounter: number = 0;
+let rspCounter: number = 0;
+export function noOfActiveCtx(): number {
+  return reqCounter - rspCounter;
+}
 let myNeighbors = Neighbors.getInstance();
 let amqpLocal: any = {};
 interface deviceClient {
@@ -16,7 +20,8 @@ interface deviceClient {
 let clientList: deviceClient[];
 var msg_count = 0;
 function onMessage(seneca, json_message) {
-  console.log('---->New Msg/Req received on EDGE Server AMQP', ++msg_count);
+  console.log('---->New Msg/Req received on EDGE Server AMQP', ++msg_count, rspCounter);
+  reqCounter++;
   let message: any = JSON.parse(json_message.content);
   let msg: itf.i_edge_req;
   if (typeof (message["cmd_id"]) === "undefined") {
@@ -24,7 +29,7 @@ function onMessage(seneca, json_message) {
       payload: message.payload,
       cmd_id: 0,
       type: message.type,
-      ttl: 1,
+      ttl: 5,
       task_id: message.task_id
     };
   } else {
@@ -36,6 +41,7 @@ function onMessage(seneca, json_message) {
       task_id: message.task_id
     };
   }
+
   seneca.act({ role: "offloadRequest", cmd: "taskScheduler" }, msg, (
     err,
     reply: itf.i_edge_rsp
@@ -49,6 +55,7 @@ function onMessage(seneca, json_message) {
       ttl: reply.ttl,
       cmd_id: reply.cmd_id
     };
+
     if (typeof json_message.properties.replyTo !== 'undefined') {
       amqpLocal.ch.sendToQueue(json_message.properties.replyTo, Buffer.from(JSON.stringify(json_message_out)), {
         correlationId: json_message.properties.correlationId
@@ -56,6 +63,7 @@ function onMessage(seneca, json_message) {
     } else {
       amqpLocal.ch.sendToQueue('d_task1_rsp', Buffer.from(JSON.stringify(json_message_out)));
     }
+    rspCounter++;
   });
 }
 export function establishRMBLocalConnection() {
@@ -67,6 +75,9 @@ export function establishRMBLocalConnection() {
       .then((ch) => {
         amqpLocal.ch = ch;
         debug("RMQ local connection established");
+      })
+      .then((ch) => {
+        amqpLocal.ch.assertQueue('d_task1_req', { durable: false });
         resolve();
       })
       .catch((err) => {
@@ -102,7 +113,8 @@ export function startPublishingLocalTopics() {
     let msg: itf.cld_publish_topics = {
       cpu: os.getCPUNow(),
       freemem: os.getFreeRam(),
-      msgCount: amqpStats.getQueueStats('d_task1_req').messages
+      msgCount: amqpStats.getQueueStats('d_task1_req').messages,
+      activeCtx: reqCounter - rspCounter
     }
     //ch.publish(ex, '', msg);
     amqpLocal.ch.publish(ex, '', new Buffer(JSON.stringify(msg)));

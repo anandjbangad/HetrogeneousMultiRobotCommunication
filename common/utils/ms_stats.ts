@@ -29,7 +29,7 @@ export function startMonitoringQueueStats(queueName: string) {
             qStats[queueName] = {
                 "messages": data.messages,
                 "messages_ready": data.messages_ready,
-                "deliver_get": data.message_stats.deliver_get
+                "deliver_get": data.backing_queue_status.len //data.message_stats.deliver_get
             }
         })
     }, 3000);

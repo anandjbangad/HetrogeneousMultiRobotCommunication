@@ -48,6 +48,8 @@ var NodeList = cloudDB.model("NodeList", nodeListSchema);
 // NodeList.remove({}, function () {
 //   console.log("Nodelist db cleaned");
 // });
+let reqCounter: number = 0;
+let rspCounter: number = 0;
 
 function getRemoteIPInfoOnServer(ws) {
   return {
@@ -81,6 +83,7 @@ amqp.connect('amqp://localhost')
 
     console.log(" [*] Waiting for messages in %s. To exit press CTRL+C", q);
     ch.consume(q, (msg) => {
+      reqCounter++;
       console.log(" [x] Received %s", msg.content.toString());
       ch.assertQueue(msg.properties.replyTo, { durable: false });
       console.log("reply to ", msg.properties.replyTo);
@@ -89,6 +92,7 @@ amqp.connect('amqp://localhost')
       Task3(message)
         .then((edge_rsp: itf.i_edge_rsp) => {
           ch.sendToQueue(msg.properties.replyTo, Buffer.from(JSON.stringify(edge_rsp)), { correlationId: msg.properties.correlationId });
+          rspCounter++;
         });
     }, { noAck: true });
   })
@@ -100,10 +104,11 @@ amqp.connect('amqp://localhost')
     amqpCloud.ch.assertExchange(ex, 'fanout', { durable: false });
     setInterval(() => {
       Promise.all([os.getCPU(), getQueueStats("c_task1_req")]).then(values => {
-        let msg = {
+        let msg: itf.cld_publish_topics = {
           cpu: values[0] + (Math.random() * 0.1 - 0.05),
           freemem: os.getFreeRam() + (Math.random() * 0.1 - 0.05),
-          msgCount: values[1]
+          msgCount: values[1],
+          activeCtx: reqCounter - rspCounter
         }
         amqpCloud.ch.publish(ex, '', new Buffer(JSON.stringify(msg)));
         console.log(" [x] Sent from Cloud %s", msg);

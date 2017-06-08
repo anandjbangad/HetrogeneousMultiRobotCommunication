@@ -9,7 +9,13 @@ import Debug = require("debug");
 
 let debug = Debug("cloudClient");
 
-let cloudTopicRsp: itf.cld_publish_topics;
+let cloudTopicRsp: itf.cld_publish_topics = {
+  cpu: 0,
+  freemem: 0,
+  msgCount: 0,
+  activeCtx: 0
+};
+
 let maCldMsgLatency = MA(5 * 1000); // 5sec
 let maCldCPU = MA(5 * 1000); // 5sec
 let maCldfreemem = MA(5 * 1000); // 5sec
@@ -30,7 +36,7 @@ export function getCldTopics(): itf.cld_publish_topics {
 let amqpCloud: any = {};
 export function establishRMBCloudConnection() {
   return new Promise(function (resolve, reject) {
-    amqp.connect('amqp://localhost') //cloud url TODO
+    amqp.connect('amqp://' + process.env.CLOUD_HOST) //cloud url TODO
       .then((conn) => {
         return conn.createChannel();
       })
@@ -231,7 +237,7 @@ export function getNeighbours() {
       type: "getNeighbours",
       uuid: process.env.UUID,
       sessionID: process.env.sessionID,
-      count: 1
+      count: process.env.neighborClusterCount
     };
     cloud_ws.send(
       JSON.stringify(json_message)

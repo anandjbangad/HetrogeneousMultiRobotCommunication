@@ -1,16 +1,115 @@
 import neigh = require("../../neighbors.js");
 import { getCldTopics } from "../../ws/cloud_client"
+import { noOfActiveCtx } from "../../ws/edge_server"
 import * as itf from "../../../../common/interfaces.d"
 import * as os from "../../../../common/utils/os"
 import * as amqpStats from "../../../../common/utils/ms_stats"
 import math = require('mathjs');
+import amqp = require('amqplib');
 import Debug = require('debug');
 let debug = Debug('topsis');
 
+let amqpPython: any = {};
+let socketQueueId: number = 0;
+let socketQueue: any = {};
+export function algoTopsisInit() {
+    return new Promise(function (resolve, reject) {
+        //amqp.connect('amqp://localhost') //cloud url TODO
+        amqp.connect('amqp://' + process.env.CLOUD_HOST) //cloud url TODO
+            .then((conn) => {
+                return conn.createChannel();
+            })
+            .then((ch) => {
+                amqpPython.ch = ch;
+                debug("RMQ python connection established");
+                return amqpPython.ch.assertQueue(process.env.UUID + 'python_rsp', { durable: false });
+
+            })
+            .then((q) => {
+                amqpPython.rspQ = q.queue;
+                return amqpPython.ch.assertQueue('python_req', { durable: false });
+
+            })
+            .then((q) => {
+
+                return amqpPython.ch.consume(amqpPython.rspQ, (msg) => {
+                    console.log("-->python recvd: [x] %s", msg.content.toString());
+                    //check correlation-id from map
+                    let python_msg: itf.i_python_rsp = JSON.parse(msg.content);
+                    if (
+                        typeof msg.properties.correlationId != "undefined" &&
+                        typeof socketQueue["i_" + msg.properties.correlationId] == "function"
+                    ) {
+                        let execFunc = socketQueue["i_" + msg.properties.correlationId];
+                        // update moving avg
+                        //maNeighMsgLatency.push(Date.now(), Date.now() - (socketQueue["i_" + msg.properties.correlationId]).sendTime);
+                        execFunc(python_msg);
+                        delete socketQueue["i_" + msg.properties.correlationId]; // to free up memory.. and it is IMPORTANT thanks  Le Droid for the reminder
+                        return;
+                    } else {
+                        console.log("Unknown response on python_rsp queue", python_msg.offloadTo);
+                    }
+                }, { noAck: true });
+
+            })
+            .then((q) => {
+                resolve();
+            })
+            .catch((err) => {
+                console.log(err);
+                reject(err);
+            })
+    });
+}
 
 var lastMsgSentTo: number = 0;
 //debug = function () { }
-export function algoTopsis() {
+
+export function algoTopsis(onReturnFunction) {
+    return new Promise(function (resolve, reject) {
+        socketQueueId++;
+        if (typeof onReturnFunction == "function") {
+            // the 'i_' prefix is a good way to force string indices, believe me you'll want that in case your server side doesn't care and mixes both like PHP might do
+            socketQueue["i_" + socketQueueId] = onReturnFunction;
+        }
+        let noOfNeigh = neigh.Neighbors.getInstance().getActiveNeighborCount(); //getAllNeighbor().length;
+        let jsonData: itf.i_python_req = {
+            type: "neighmsg",
+            payload: "mypayload",
+            matrix: createArray(noOfNeigh),
+            n_alternatives: 2 + noOfNeigh,
+            m_criterias: 4
+        };
+
+        try {
+            amqpPython.ch.sendToQueue('python_req', Buffer.from(JSON.stringify(jsonData)),
+                {
+                    correlationId: socketQueueId.toString(),
+                    replyTo: amqpPython.rspQ
+                });
+        } catch (e) {
+            console.error("Sending failed to pyhon_req Queue ... .disconnected failed");
+        }
+
+    });
+}
+function createArray(noOfNeigh: number) {
+    let dataset: number[] = [];
+    //local
+    dataset.push(os.getCPUNow(), os.getFreeRam(), amqpStats.getQueueStats("d_task1_req").messages || 1, noOfActiveCtx());
+    //cloud
+    let cldTopicRsp: itf.cld_publish_topics = getCldTopics();
+    dataset.push(cldTopicRsp.cpu, cldTopicRsp.freemem, cldTopicRsp.msgCount.messages || 1, cldTopicRsp.activeCtx)
+
+    for (let i = 0; i != noOfNeigh; ++i) {
+        dataset.push(neigh.Neighbors.getInstance().getAllNeighbor()[i].amqpNeigh.topicsUpdateMsg.cpu);
+        dataset.push(neigh.Neighbors.getInstance().getAllNeighbor()[i].amqpNeigh.topicsUpdateMsg.freemem)
+        dataset.push(neigh.Neighbors.getInstance().getAllNeighbor()[i].amqpNeigh.topicsUpdateMsg.msgCount.messages || 1);
+        dataset.push(neigh.Neighbors.getInstance().getAllNeighbor()[i].amqpNeigh.topicsUpdateMsg.activeCtx);
+    }
+    return dataset;
+}
+export function algoTopsisLocal() {
     const m_alternatives = 2 + neigh.Neighbors.getInstance().getAllNeighbor().length;
     const n_criterias = 3;
     var dataset = math.matrix(math.zeros([n_criterias, m_alternatives]));

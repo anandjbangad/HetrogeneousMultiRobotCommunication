@@ -38,58 +38,10 @@ export function offload(globalCtx) {
   ) {
     //execute taks locally only
     let num: number = Math.floor(Math.random() * 3);
-
-    message.payload = message.payload + ' E(' + process.env.IP_ADDR + ')';
-
-    // if (globalCtx.seneca.cloudInitDone === true) {
-    //   num = 2;
-    // } else {
-    //   num = 1;
-    // }
-    // num = 0;
-    if (message.ttl <= 0) {
-      num = 1;
-    }
-    num = algoTopsis();
-
     message.ttl = message.ttl - 1;
-
-    //    switch (++options.counter % 3) {
-    if (num > 1) {
-      console.log("Msg Rcvd: offload to neighbor");
-      msgCountNeigh++;
-      //message.payload = message.payload + ' E(' + os.getIpAddr().split(".")[3] + ')';
-      let neighborCount = neigh.Neighbors.getInstance().getAllNeighbor().length;
-      message.payload = message.payload + ' N ';
-      console.log(neigh.Neighbors.getInstance().getAllNeighbor()[num - 2].ipAddr);
-      //neigh.Neighbors.getInstance().getAllNeighbor()[0].test();
-      //correct ctx in neighborsenddata since called from neighbor class
-      neigh.Neighbors.getInstance().getAllNeighbor()[num - 2].neighborSendDataAmqp(message, function (result: itf.i_edge_rsp) {
-        done(null, result);
-      });
-      // for (let curNeigh of neigh.Neighbors.getInstance().getAllNeighbor()) {
-      //   curNeigh.neighborSendDataAmqp(message, function (result: itf.i_edge_rsp) {
-      //     done(null, result);
-      //   });
-      // }
-      // if (typeof neigh.Neighbors.getInstance().getAllNeighbor() !== null) {
-      //   neigh.Neighbors.getInstance().getAllNeighbor()[0].neighborSendData(message, function (result: itf.i_edge_rsp) {
-      //     //result is without command id
-      //     console.error("result is --> ", result);
-      //     done(null, result);
-      //   });
-      // }
-    }
-    // case 0:
-    if (num == 0) {
-      console.log("Msg Rcvd: no offload");
-      msgCountLocal++;
-      //console.log("executing task locally with " + message);
-      // seneca.act({ role: 'offloadRequest', cmd: 'visionTask' }, message, function (err, reply) { //message.msg is image/txt
-      //     //console.log(reply.result);
-      //     done(null, reply)
-      // })
-      //if queue is empty, run the task now otherwise enque in queue
+    message.payload = message.payload + ' E(' + process.env.IP_ADDR + ')';
+    //ttl expired -> process locally
+    if (message.ttl <= 0) {
       seneca.act(
         { role: "visionRequest", cmd: "Task3" },
         message,
@@ -97,18 +49,70 @@ export function offload(globalCtx) {
           done(null, reply);
         }
       );
+    } else {
+      algoTopsis((rsp) => {
+        num = rsp.offloadTo
+        // if (neigh.Neighbors.getInstance().getActiveNeighborCount() == 2) {
+        //   num = 2;
+        // }
+        //num = 1;
+        //    switch (++options.counter % 3) {
+        if (num > 1) {
+          console.log("Msg Rcvd: offload to neighbor");
+          msgCountNeigh++;
+          //message.payload = message.payload + ' E(' + os.getIpAddr().split(".")[3] + ')';
+          let neighborCount = neigh.Neighbors.getInstance().getAllNeighbor().length;
+          message.payload = message.payload + ' N ';
+          console.log(neigh.Neighbors.getInstance().getAllNeighbor()[num - 2].ipAddr);
+          //neigh.Neighbors.getInstance().getAllNeighbor()[0].test();
+          //correct ctx in neighborsenddata since called from neighbor class
+          neigh.Neighbors.getInstance().getAllNeighbor()[num - 2].neighborSendDataAmqp(message, function (result: itf.i_edge_rsp) {
+            done(null, result);
+          });
+          // for (let curNeigh of neigh.Neighbors.getInstance().getAllNeighbor()) {
+          //   curNeigh.neighborSendDataAmqp(message, function (result: itf.i_edge_rsp) {
+          //     done(null, result);
+          //   });
+          // }
+          // if (typeof neigh.Neighbors.getInstance().getAllNeighbor() !== null) {
+          //   neigh.Neighbors.getInstance().getAllNeighbor()[0].neighborSendData(message, function (result: itf.i_edge_rsp) {
+          //     //result is without command id
+          //     console.error("result is --> ", result);
+          //     done(null, result);
+          //   });
+          // }
+        }
+        // case 0:
+        if (num == 0) {
+          console.log("Msg Rcvd: no offload");
+          msgCountLocal++;
+          //console.log("executing task locally with " + message);
+          // seneca.act({ role: 'offloadRequest', cmd: 'visionTask' }, message, function (err, reply) { //message.msg is image/txt
+          //     //console.log(reply.result);
+          //     done(null, reply)
+          // })
+          //if queue is empty, run the task now otherwise enque in queue
+          seneca.act(
+            { role: "visionRequest", cmd: "Task3" },
+            message,
+            function (err, reply: itf.i_edge_rsp) {
+              done(null, reply);
+            }
+          );
 
-    }
-    if (num == 1) {
-      console.log("Msg Rcvd: offload to cloud");
-      msgCountCloud++;
-      //onCloud
-      //if(options.globalCtx.isCloudAlive === true){}
-      cloudSendDataAmqp(message, globalCtx, function (result: itf.i_edge_rsp) {
-        //console.log("Msg replied from cloud" + result);
-        done(null, result);
+        }
+        if (num == 1) {
+          console.log("Msg Rcvd: offload to cloud");
+          msgCountCloud++;
+          //onCloud
+          //if(options.globalCtx.isCloudAlive === true){}
+          cloudSendDataAmqp(message, globalCtx, function (result: itf.i_edge_rsp) {
+            //console.log("Msg replied from cloud" + result);
+            done(null, result);
+          });
+        }
+
       });
-
     }
   });
 
