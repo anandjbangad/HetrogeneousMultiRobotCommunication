@@ -3,6 +3,9 @@ var socket = io.connect('http://0.0.0.0:8000/');
 //        var socket = io.connect('http://10.0.10.239:8000/'); //not working
 // I create a new object 'Chart1'
 var chart1 = new Highcharts.Chart({
+    credits: {
+        enabled: false
+    },
     chart: {
         renderTo: 'chart1',
         defaultSeriesType: 'spline',
@@ -14,6 +17,11 @@ var chart1 = new Highcharts.Chart({
                     series.addPoint([time, data]);
                 });
             }
+        }
+    },
+    plotOptions: {
+        spline: {
+            pointStart: Date.UTC(2017, 5, 14)
         }
     },
     rangeSelector: {
@@ -32,7 +40,7 @@ var chart1 = new Highcharts.Chart({
         maxPadding: 0.2,
         title: {
             text: 'Temperature ºC',
-            margin: 80
+            margin: 40
         }
     },
     series: [{
@@ -41,6 +49,9 @@ var chart1 = new Highcharts.Chart({
     }]
 });
 var chart2 = new Highcharts.Chart({
+    credits: {
+        enabled: false
+    },
     chart: {
         renderTo: 'chart2',
         defaultSeriesType: 'spline',
@@ -79,6 +90,9 @@ var chart2 = new Highcharts.Chart({
     }]
 });
 var chart3 = new Highcharts.Chart({
+    credits: {
+        enabled: false
+    },
     chart: {
         renderTo: 'chart3',
         defaultSeriesType: 'spline',
@@ -117,6 +131,9 @@ var chart3 = new Highcharts.Chart({
     }]
 });
 var chart4 = new Highcharts.Chart({
+    credits: {
+        enabled: false
+    },
     chart: {
         renderTo: 'chart4',
         defaultSeriesType: 'spline',
@@ -125,8 +142,9 @@ var chart4 = new Highcharts.Chart({
                 // Each time you receive a value from the socket, I put it on the graph
                 socket.on('messages', function (time, result) {
                     var series = chart4.series[0];
-                    chart4.series[0].addPoint([time, result['messages']]);
-                    chart4.series[1].addPoint([time, result['messages_ready']]);
+                    //chart4.series[0].addPoint([time, result['messages']]);
+                    //chart4.series[1].addPoint([time, result['messages_ready']]);
+                    chart4.series[0].addPoint([time, result]);
                 });
             }
         }
@@ -159,6 +177,9 @@ var chart4 = new Highcharts.Chart({
     }]
 });
 var chart5 = new Highcharts.Chart({
+    credits: {
+        enabled: false
+    },
     chart: {
         renderTo: 'chart5',
         defaultSeriesType: 'spline',
@@ -176,7 +197,7 @@ var chart5 = new Highcharts.Chart({
         selected: 100
     },
     title: {
-        text: 'Cloud Latency in ms'
+        text: 'Cloud Latency (MM=10sec)'
     },
     xAxis: {
         type: 'datetime',
@@ -197,6 +218,9 @@ var chart5 = new Highcharts.Chart({
     }]
 });
 var chart6 = new Highcharts.Chart({
+    credits: {
+        enabled: false
+    },
     chart: {
         renderTo: 'chart6',
         defaultSeriesType: 'spline',
@@ -204,8 +228,10 @@ var chart6 = new Highcharts.Chart({
             load: function () {
                 // Each time you receive a value from the socket, I put it on the graph
                 socket.on('processed_msgs', function (time, result) {
-                    chart6.series[0].addPoint([time, (result[1] / result[0]) || 0]);
-                    chart6.series[1].addPoint([time, (result[2] / result[0]) || 0]);
+                    if (result[0] != 0) {
+                        chart6.series[0].addPoint([time, (result[1] * 1.0 / result[0]) || 0]);
+                        chart6.series[1].addPoint([time, (result[2] * 1.0 / result[0]) || 0]);
+                    }
                 });
             }
         }

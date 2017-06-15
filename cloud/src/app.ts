@@ -9,6 +9,13 @@ import { Task3, visionTask1 } from "./task"
 import amqp = require('amqplib');
 import os = require("../../common/utils/os")
 import { getQueueStats, startMonitoringQueueStats } from "../../common/utils/ms_stats"
+import winston = require("winston")
+winston.remove(winston.transports.Console);
+winston.add(winston.transports.Console, {
+  timestamp: true,
+  level: process.env.LOGGING_LVL, //{ error: 0, warn: 1, info: 2, verbose: 3, debug: 4, silly: 5 }
+  colorize: true
+});
 
 
 import { Server as WebSocketServer } from "ws";
@@ -39,7 +46,7 @@ var nodeListSchema = new Schema({
   gps: gpsCoordinate
 });
 nodeListSchema.methods.print = function () {
-  console.log("Client #" + this.uuid + " updated.");
+  winston.info("Client #" + this.uuid + " updated.");
 };
 //get model
 var NodeList = cloudDB.model("NodeList", nodeListSchema);
@@ -81,12 +88,12 @@ amqp.connect('amqp://localhost')
     var q = 'c_task1_req';
     ch.assertQueue(q, { durable: false });
 
-    console.log(" [*] Waiting for messages in %s. To exit press CTRL+C", q);
+    winston.info(" started listening for messages in %s", q);
     ch.consume(q, (msg) => {
       reqCounter++;
-      console.log(" [x] Received %s", msg.content.toString());
+      winston.debug("Received %s", msg.content.toString());
       ch.assertQueue(msg.properties.replyTo, { durable: false });
-      console.log("reply to ", msg.properties.replyTo);
+      winston.debug("reply to ", msg.properties.replyTo);
 
       let message: itf.i_edge_req = JSON.parse(msg.content);
       Task3(message)
@@ -105,22 +112,24 @@ amqp.connect('amqp://localhost')
     setInterval(() => {
       Promise.all([os.getCPU(), getQueueStats("c_task1_req")]).then(values => {
         let msg: itf.cld_publish_topics = {
-          cpu: values[0] + (Math.random() * 0.1 - 0.05),
-          freemem: os.getFreeRam() + (Math.random() * 0.1 - 0.05),
+          // cpu: values[0] + (Math.random() * 0.1 - 0.05),
+          // freemem: os.getFreeRam() + (Math.random() * 0.1 - 0.05),
+          cpu: values[0],
+          freemem: os.getFreeRam(),
           msgCount: values[1],
           activeCtx: reqCounter - rspCounter
         }
         amqpCloud.ch.publish(ex, '', new Buffer(JSON.stringify(msg)));
-        console.log(" [x] Sent from Cloud %s", msg);
+        winston.verbose("Published topics from Cloud ", msg);
       })
     }, process.env.localTopicPublishPeriod);
   })
   .catch((err) => {
-    console.log(err);
+    winston.log(err);
   })
 
 wss.on("connection", function connection(ws) {
-  console.log("\n\nsomeone trying to connect from " + JSON.stringify(getRemoteIPInfoOnServer(ws)));
+  winston.info("someone trying to connect from " + getRemoteIPInfoOnServer(ws));
   ws.isAlive = true;
   ws.on('pong', function () {
     this.isAlive = true;
@@ -131,10 +140,10 @@ wss.on("connection", function connection(ws) {
     try {
       var data = JSON.parse(message);
     } catch (error) {
-      console.log("socket parse error: " + error.data);
+      winston.error("socket parse error: " + error.data);
     }
     if (typeof data["type"] == "undefined") {
-      console.error("type field is undefined");
+      winston.error("type field is undefined");
       return;
     }
     // NodeList.findOne(
@@ -148,7 +157,7 @@ wss.on("connection", function connection(ws) {
     //     }
     //   });
 
-    console.log("-->Msg Rcvd:", data["type"]);
+    winston.verbose("-->Msg Rcvd:", data["type"]);
     switch (data["type"]) {
       case "init":
         //check for init msg
@@ -161,7 +170,7 @@ wss.on("connection", function connection(ws) {
             { upsert: true },
             function (err, doc) {
               if (err) console.error(err);
-              console.log("Init done. Received uuid is ", data["uuid"]);
+              winston.info("Init done. Received uuid is ", data["uuid"]);
               ws.send(
                 JSON.stringify({
                   type: "initDone"
@@ -172,7 +181,7 @@ wss.on("connection", function connection(ws) {
         }
         break;
       case "services":
-        console.log("Updating Services");
+        winston.info("Updating Services");
         if (typeof data["uuid"] != "undefined") {
           NodeList.findOneAndUpdate(
             {
@@ -185,8 +194,18 @@ wss.on("connection", function connection(ws) {
             { upsert: false, new: true },
             function (err, doc) {
               if (err) console.error(err);
-              console.log(data["gps"]);
+              winston.info(data["gps"]);
               //spatialTree.insert(data["gps"]);
+              let item = {
+                minX: data["gps"].lat,
+                minY: data["gps"].lon,
+                maxX: data["gps"].lat,
+                maxY: data["gps"].lon,
+                ipAddr: doc.ipAddr
+              }
+              spatialTree.remove(item, function (a, b) {
+                return a.ipAddr === b.ipAddr;
+              });
               spatialTree.insert({
                 minX: data["gps"].lat,
                 minY: data["gps"].lon,
@@ -194,7 +213,7 @@ wss.on("connection", function connection(ws) {
                 maxY: data["gps"].lon,
                 ipAddr: doc.ipAddr
               });
-              console.log("services updated");
+              winston.verbose("services updated");
               //wait for 5sec time so that other nodes also register them with cloud
               setTimeout(() => {
                 ws.send(JSON.stringify({
@@ -215,7 +234,7 @@ wss.on("connection", function connection(ws) {
             },
             function (err, doc) {
               if (err) console.error(err);
-              console.log(doc);
+              winston.verbose(doc);
 
               var neighbors = knn(
                 spatialTree,
@@ -225,7 +244,7 @@ wss.on("connection", function connection(ws) {
                   return item.ipAddr !== doc.ipAddr;
                 }
               );
-              console.log(neighbors);
+              winston.info(neighbors);
               ws.send(
                 JSON.stringify({
                   type: "getNeighboursDone",
@@ -233,7 +252,7 @@ wss.on("connection", function connection(ws) {
                   ipAddr: doc.ipAddr
                 })
               );
-              console.log("neighbours updated");
+              winston.info("neighbours updated");
             }
           );
         }
@@ -283,7 +302,7 @@ wss.on("connection", function connection(ws) {
       //     });
       //   break;
       default:
-        console.log("Unknown Msg type received");
+        winston.error("Unknown Msg type received");
     }
   });
 });

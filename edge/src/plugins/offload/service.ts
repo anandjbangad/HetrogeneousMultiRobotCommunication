@@ -1,4 +1,4 @@
-//offload.js
+import winston = require("winston")
 
 import { Device, NodeList } from "../../storage.js";
 import os = require("../../../../common/utils/os.js");
@@ -27,7 +27,7 @@ export function offload(globalCtx) {
   seneca.add({ init: "offload" }, function (msg, done) {
     // do stuff, e.g.
     setTimeout(function () {
-      console.log(" OFFload Service init done!");
+      winston.info(" OFFload Service init done!");
       done();
     }, 1000);
   });
@@ -58,7 +58,7 @@ export function offload(globalCtx) {
         //num = 1;
         //    switch (++options.counter % 3) {
         if (num > 1) {
-          console.log("Msg Rcvd: offload to neighbor");
+          winston.debug("Msg Rcvd: offload to neighbor");
           msgCountNeigh++;
           //message.payload = message.payload + ' E(' + os.getIpAddr().split(".")[3] + ')';
           let neighborCount = neigh.Neighbors.getInstance().getAllNeighbor().length;
@@ -84,7 +84,7 @@ export function offload(globalCtx) {
         }
         // case 0:
         if (num == 0) {
-          console.log("Msg Rcvd: no offload");
+          winston.debug("Msg Rcvd: no offload");
           msgCountLocal++;
           //console.log("executing task locally with " + message);
           // seneca.act({ role: 'offloadRequest', cmd: 'visionTask' }, message, function (err, reply) { //message.msg is image/txt
@@ -102,7 +102,7 @@ export function offload(globalCtx) {
 
         }
         if (num == 1) {
-          console.log("Msg Rcvd: offload to cloud");
+          winston.debug("Msg Rcvd: offload to cloud");
           msgCountCloud++;
           //onCloud
           //if(options.globalCtx.isCloudAlive === true){}

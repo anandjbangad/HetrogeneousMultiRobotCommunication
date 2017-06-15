@@ -1,7 +1,8 @@
 export interface e_edge_req {
     type: string,
     payload: string,
-    task_id: number
+    task_id: number,
+    sentTime: number
 }
 export interface i_edge_req extends e_edge_req {
     cmd_id: number,
@@ -11,10 +12,12 @@ export interface e_edge_rsp {
     type: string,
     result: string,
     task_id: number,
-    ttl: number
+    ttl: number,
+    sentTime: number
 }
 export interface i_edge_rsp extends e_edge_rsp {
     cmd_id: number,
+    sentTime: number
 }
 
 export interface cld_edge_init {

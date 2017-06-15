@@ -1,5 +1,7 @@
 import osUtils = require("os-utils");
 import ipaddr = require('ipaddr.js');
+import winston = require("winston")
+
 
 let ipAddr;
 let cpuPercent: number;
@@ -14,6 +16,7 @@ const updateUsageVar = () => {
   });
 }
 export function startOSMonitoring() {
+  winston.info("started monitoring os params!")
   cpuPercent = 0;
   freeMem = 0;
   updateUsageVar();

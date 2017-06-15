@@ -5,8 +5,7 @@ import * as itf from "../../common/interfaces.d"
 import amqp = require('amqplib');
 import MA = require('moving-average');
 
-import Debug = require("debug");
-let debug = Debug("neighbors");
+import winston = require("winston")
 
 export class gps {
     lat: Number;
@@ -44,7 +43,7 @@ export class Neighbor {
         this.gps = gps;
         this.ipAddr = ipAddr;
         //establish rabbitmq connection
-        console.log("tyring to connect to ", 'amqp://' + ipaddr.process(ipAddr))
+        winston.info("Neighbor: tyring to connect to ", 'amqp://' + ipaddr.process(ipAddr))
         amqp.connect('amqp://' + ipaddr.process(ipAddr))
             .then((conn) => {
                 return conn.createChannel();
@@ -60,7 +59,7 @@ export class Neighbor {
             .then((q) => {
                 this.amqpNeigh.rspQ = q.queue;
                 return this.amqpNeigh.ch.consume(this.amqpNeigh.rspQ, (msg) => {
-                    console.log("-->neigh recvd: [x] %s", msg.content.toString());
+                    winston.verbose("-->neigh recvd: [x] %s", msg.content.toString());
                     //check correlation-id from map
                     let neigh_msg: itf.i_edge_rsp = JSON.parse(msg.content);
                     if (
@@ -74,7 +73,7 @@ export class Neighbor {
                         delete this.socketQueue["i_" + msg.properties.correlationId]; // to free up memory.. and it is IMPORTANT thanks  Le Droid for the reminder
                         return;
                     } else {
-                        console.log("Error: Neigh socketRecieveData", neigh_msg.result);
+                        winston.error("Error: Neigh socketRecieveData", neigh_msg.result);
                     }
                 }, { noAck: true });
             }).then(() => {
@@ -93,11 +92,11 @@ export class Neighbor {
             .then((q) => {
                 return this.amqpNeigh.ch.consume(this.amqpNeigh.topicExchange.rspQ, (msg) => {
                     this.amqpNeigh.topicsUpdateMsg = <itf.cld_publish_topics>JSON.parse(msg.content);
-                    console.log("pubsub from neigh: [x] %s", msg.content.toString());
+                    winston.verbose("pubsub from neigh: [x] %s", msg.content.toString());
                 }, { noAck: true });
             })
             .then((q) => {
-                console.log("Neighbor is ready!")
+                winston.info("Neighbor is ready!")
                 Neighbors.getInstance().incrementActiveNeighborCount();
                 this.isReady = true;
             })
@@ -137,7 +136,7 @@ export class Neighbor {
                     replyTo: this.amqpNeigh.rspQ
                 });
         } catch (e) {
-            console.error("Sending failed ... .disconnected failed");
+            winston.error("Sending failed ... .disconnected failed");
         }
     }
 }

@@ -1,6 +1,6 @@
 import AMQPStats = require('amqp-stats');
 import Debug = require('debug');
-let debug = Debug('amqpStats');
+import winston = require("winston")
 
 var stats = new AMQPStats({
     username: "guest", // default: guest
@@ -23,6 +23,7 @@ let qStats = {};
 //     })
 // }, 500);
 export function startMonitoringQueueStats(queueName: string) {
+    winston.info("started monitoring RMQ stats")
     setInterval(function () {
         stats.getQueue('/', queueName, function (err, res, data) {
             if (err) { throw err; }
@@ -37,7 +38,7 @@ export function startMonitoringQueueStats(queueName: string) {
 
 export function getQueueStats(queueName: string) {
     if (typeof qStats[queueName] !== 'object') {
-        debug("Queried for unknown queue");
+        winston.error("Queried for unknown queue");
         return {
             "messages": 0,
             "messages_ready": 0,

@@ -6,8 +6,7 @@ import * as os from "../../../../common/utils/os"
 import * as amqpStats from "../../../../common/utils/ms_stats"
 import math = require('mathjs');
 import amqp = require('amqplib');
-import Debug = require('debug');
-let debug = Debug('topsis');
+import winston = require("winston")
 
 let amqpPython: any = {};
 let socketQueueId: number = 0;
@@ -21,7 +20,7 @@ export function algoTopsisInit() {
             })
             .then((ch) => {
                 amqpPython.ch = ch;
-                debug("RMQ python connection established");
+                winston.info("RMQ python connection established");
                 return amqpPython.ch.assertQueue(process.env.UUID + 'python_rsp', { durable: false });
 
             })
@@ -33,7 +32,7 @@ export function algoTopsisInit() {
             .then((q) => {
 
                 return amqpPython.ch.consume(amqpPython.rspQ, (msg) => {
-                    console.log("-->python recvd: [x] %s", msg.content.toString());
+                    winston.debug("-->python recvd: [x] %s", msg.content.toString());
                     //check correlation-id from map
                     let python_msg: itf.i_python_rsp = JSON.parse(msg.content);
                     if (
@@ -47,7 +46,7 @@ export function algoTopsisInit() {
                         delete socketQueue["i_" + msg.properties.correlationId]; // to free up memory.. and it is IMPORTANT thanks  Le Droid for the reminder
                         return;
                     } else {
-                        console.log("Unknown response on python_rsp queue", python_msg.offloadTo);
+                        winston.warn("Unknown response on python_rsp queue", python_msg.offloadTo);
                     }
                 }, { noAck: true });
 
@@ -56,7 +55,7 @@ export function algoTopsisInit() {
                 resolve();
             })
             .catch((err) => {
-                console.log(err);
+                winston.err(err);
                 reject(err);
             })
     });
@@ -88,7 +87,7 @@ export function algoTopsis(onReturnFunction) {
                     replyTo: amqpPython.rspQ
                 });
         } catch (e) {
-            console.error("Sending failed to pyhon_req Queue ... .disconnected failed");
+            winston.error("Sending failed to pyhon_req Queue ... .disconnected failed");
         }
 
     });
@@ -128,7 +127,7 @@ export function algoTopsisLocal() {
                         dataset.subset(math.index(index[0], index[1]), amqpStats.getQueueStats("d_task1_req").messages || 1);
                         break;
                     default:
-                        debug("Unknown criteria in topsis algorithm for local");
+                        winston.error("Unknown criteria in topsis algorithm for local");
                 }
                 break;
             case 1: //cloud
@@ -144,7 +143,7 @@ export function algoTopsisLocal() {
                         dataset.subset(math.index(index[0], index[1]), cldTopicRsp.msgCount.messages || 1);
                         break;
                     default:
-                        debug("Unknown criteria in topsis algorithm for cloud");
+                        winston.error("Unknown criteria in topsis algorithm for cloud");
                 }
                 break;
             default: //neigh
@@ -159,7 +158,7 @@ export function algoTopsisLocal() {
                         dataset.subset(math.index(index[0], index[1]), neigh.Neighbors.getInstance().getAllNeighbor()[index[1] - 1].amqpNeigh.topicsUpdateMsg.msgCount.messages || 1);
                         break;
                     default:
-                        debug("Unknown criteria in topsis algorithm for neighbor");
+                        winston.error("Unknown criteria in topsis algorithm for neighbor");
                 }
                 break;
         }
@@ -177,7 +176,7 @@ export function algoTopsisLocal() {
     //     [[4, 5, 6], [2, 1, 3], [10, 10, 7]]  //criteria X
     // ]);
     // debug("Dataset is");
-    print(dataset);
+    print(dataset, "silly");
     // math.size() ==> rows, cols, ...
     var weights = math.zeros(dataset.size()[0], dataset.size()[1]);
     //weights(nxm)
@@ -196,17 +195,17 @@ export function algoTopsisLocal() {
 
     //     weights.subset(math.index(index[0], index[1]), math.sum(votes) / votes.size()[0]);
     // });
-    debug("Weights is");
+    winston.silly("Weights is");
     weights = dataset.clone();
-    print(weights);
+    print(weights, "silly");
     weights.forEach(function (value, index, matrix) {
         let rowSum = math.sum(matrix.subset(
             math.index(index[0], math.range(0, m_alternatives))
         ));
         criterions.subset(math.index(index[0], index[1]), Math.pow(value, 2) / rowSum);
     });
-    debug("Criterions is");
-    print(criterions);
+    winston.silly("Criterions is");
+    print(criterions, "silly");
     for (let n = 0; n != n_criterias; n++) {
         let votes = math.squeeze(criterions.subset(math.index(n, math.range(0, m_alternatives))));
         //print(votes);
@@ -224,8 +223,8 @@ export function algoTopsisLocal() {
         //sumMinMaxDiff.subset(math.index(n, 0), minVal);
         //sumMinMaxDiff.subset(math.index(n, 1), maxVal);
     }
-    debug("sumMinMaxDiff is");
-    print(sumMinMaxDiff);
+    winston.silly("sumMinMaxDiff is");
+    print(sumMinMaxDiff, "silly");
     var minMaxDiff = sumMinMaxDiff.map(function (value, index, matrix) {
         return Math.sqrt(value);
     })
@@ -235,8 +234,8 @@ export function algoTopsisLocal() {
         //debug(m);
         final.subset(math.index(m), votes.subset(math.index(0)) / math.sum(votes));
     }
-    debug("Final is");
-    print(final);
+    winston.debug("Final is");
+    print(final, "debug");
     let maxVal = 0; //doubt
     let maxIdx = 0;
     final.forEach(function (value, index, matrix) {
@@ -251,7 +250,7 @@ export function algoTopsisLocal() {
      * Helper function to output a value in the console. Value will be formatted.
      * @param {*} value
      */
-function print(value) {
+function print(value, loglvl) {
     var precision = 14;
-    console.log(math.format(value, precision));
+    winston[loglvl](math.format(value, precision));
 }

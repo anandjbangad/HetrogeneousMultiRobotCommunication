@@ -5,9 +5,7 @@ import ipaddr = require('ipaddr.js');
 import * as itf from "../../../common/interfaces.d"
 import amqp = require('amqplib');
 import MA = require('moving-average');
-import Debug = require("debug");
-
-let debug = Debug("cloudClient");
+import winston = require("winston")
 
 let cloudTopicRsp: itf.cld_publish_topics = {
   cpu: 0,
@@ -16,7 +14,7 @@ let cloudTopicRsp: itf.cld_publish_topics = {
   activeCtx: 0
 };
 
-let maCldMsgLatency = MA(5 * 1000); // 5sec
+let maCldMsgLatency = MA(10 * 1000); // 5sec
 let maCldCPU = MA(5 * 1000); // 5sec
 let maCldfreemem = MA(5 * 1000); // 5sec
 let maCldMsgCount = MA(5 * 1000); // 5sec
@@ -42,7 +40,7 @@ export function establishRMBCloudConnection() {
       })
       .then((ch) => {
         amqpCloud.ch = ch;
-        debug("RMQ cloud connection established");
+        winston.info("RMQ cloud connection established");
         resolve();
       })
       .catch((err) => {
@@ -54,7 +52,7 @@ export function establishRMBCloudConnection() {
 export function subscribeCloudTopics() {
   return new Promise(function (resolve, reject) {
     //pub sub
-    debug("subscribing to cloud topics!")
+    winston.info("subscribing to cloud topics!")
     amqpCloud.topicExchangeName = "os_env_cloud"
     amqpCloud.ch.assertExchange(amqpCloud.topicExchangeName, 'fanout', { durable: false })
       .then(() => {
@@ -66,7 +64,7 @@ export function subscribeCloudTopics() {
       })
       .then((q) => {
         return amqpCloud.ch.consume(amqpCloud.topicRspQ, function (msg) {
-          debug("pubsub_ from cloud: [x] %o", JSON.parse(msg.content));
+          winston.verbose("pubsub_ from cloud: [x] %o", JSON.parse(msg.content));
           cloudTopicRsp = JSON.parse(msg.content);
         }, { noAck: true });
       })
@@ -74,7 +72,7 @@ export function subscribeCloudTopics() {
         resolve();
       })
       .catch((err) => {
-        debug(err);
+        winston.error(err);
         reject();
       })
   });
@@ -107,7 +105,7 @@ export function cloudRMQRspQSetup() {
             delete socketQueue["i_" + msg.properties.correlationId]; // to free up memory.. and it is IMPORTANT thanks  Le Droid for the reminder
             return;
           } else {
-            debug("Error: socketRecieveData", cld_msg.result);
+            winston.error("Error: socketRecieveData", cld_msg.result);
           }
         }, { noAck: true })
       })
@@ -115,13 +113,13 @@ export function cloudRMQRspQSetup() {
         resolve();
       })
       .catch((err) => {
-        debug(err);
+        winston.error(err);
         reject();
       })
   });
 }
 export function init(globalCtx) {
-  debug("Cloud Client init!");
+  winston.info("Cloud Client init!");
 }
 export function webSocketCloudConn() {
   return new Promise(function (resolve, reject) {
@@ -129,12 +127,12 @@ export function webSocketCloudConn() {
     try {
       cloud_ws = new WebSocket("ws://" + process.env.CLOUD_HOST + ":" + process.env.CLOUD_PORT); //force new connection
     } catch (e) {
-      debug(e);
+      winston.error(e);
     }
     //var ws = new WebSocket('ws://localhost:8083');
 
     cloud_ws.on("open", function open() {
-      debug("WS Connection Established to cloud");
+      winston.info("WS Connection Established to cloud");
       //update uuid with cloud
       // var ipAddr = ipaddr.parse(this.url.split(":")[1].replace(/\//g, ''));
       // console.error("ipaddr is ", ipAddr);
@@ -151,10 +149,10 @@ export function webSocketCloudConn() {
       //ws.send(array, { binary: true, mask: true });
     });
     cloud_ws.onerror = function (event) {
-      console.error("Error in cloud client on Edge");
+      winston.error("Error in cloud client on Edge");
     }
     cloud_ws.on("close", function close() {
-      console.error("connection closed to cloud");
+      winston.error("connection closed to cloud");
       //reconnect
       //setTimeout(function () { init(globalCtx) }, 5000);
     });
@@ -166,13 +164,13 @@ export function webSocketCloudConn() {
       try {
         data = JSON.parse(message);
       } catch (error) {
-        debug("socket parse error: " + data["result"]);
+        winston.error("socket parse error: " + data["result"]);
       }
       if (typeof data["type"] == "undefined") {
         console.error("type field is undefined");
         return;
       }
-      debug("-->Msg Rcvd: " + data["type"]);
+      winston.verbose("-->Msg Rcvd: " + data["type"]);
       switch (data["type"]) {
         case "initDone":
           var step;
@@ -184,20 +182,20 @@ export function webSocketCloudConn() {
           break;
 
         case "servicesDone":
-          debug("serviceDone ipaddr is ", data.ipAddr);
+          winston.verbose("serviceDone ipaddr is ", data.ipAddr);
           os.setIpAddr(data.ipAddr);
           //send upto 5 neighbouring devices' uuid
           getNeighbours();
           break;
         case "getNeighboursDone":
-          debug(data["neighbors"]);
-          debug(data["ipAddr"]);
+          winston.info(data["neighbors"]);
+          winston.info(data["ipAddr"]);
           //store neighbors list
           neigh.Neighbors.getInstance().updateNeighbors(data["neighbors"]);
           resolve(true); //resolving promise after all msg exchanges
           break;
         default:
-          debug("Unknown Msg type received");
+          winston.error("Unknown Msg type received");
       }
     });
   });
@@ -226,7 +224,7 @@ export function cloudSendDataAmqp(data, globalCtx, onReturnFunction) {
         replyTo: amqpCloud.rspQ
       });
   } catch (e) {
-    debug("Sending to Cloud failed ... .disconnected failed");
+    winston.error("Sending to Cloud failed ... .disconnected failed");
   }
   //});
 }

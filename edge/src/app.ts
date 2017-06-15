@@ -1,7 +1,4 @@
 import { config } from "dotenv";
-import Debug = require("debug");
-
-let debug = Debug("app_edge");
 const path = require('path');
 // console.log(path.join(__dirname, '../.env'));
 // const replace = require('replace-in-file');
@@ -31,13 +28,20 @@ const path = require('path');
 
 //config({ path: "../.env" });
 config({ path: path.join(__dirname, '../../../.env') });
-debug("Edge port is " + process.env.EDGE_PORT);
+import winston = require("winston")
+winston.remove(winston.transports.Console);
+winston.add(winston.transports.Console, {
+  timestamp: true,
+  level: process.env.LOGGING_LVL, //{ error: 0, warn: 1, info: 2, verbose: 3, debug: 4, silly: 5 }
+  colorize: true
+});
+winston.info("Edge port is " + process.env.EDGE_PORT);
 //const easyMonitor = require("easy-monitor");
 //easyMonitor("edgeNode");
 
 if (!process.env.UUID) {
   process.env.UUID = require("uuid/v4")();
-  debug("New UUID for edge is " + process.env.UUID);
+  winston.info("New UUID for edge is " + process.env.UUID);
 }
 
 import { cleandb } from "./storage.js";
@@ -113,11 +117,11 @@ server.register({ register: Chairo }, function (err) {
           startPublishingLocalTopics();
           //d_task1_req queue needs to be asserter before starting monitoring
           startMonitoringQueueStats('d_task1_req'); //assume synchronous
-          debug("Local setup done");
+          winston.info("Local setup done");
           resolve();
         })
         .catch((err) => {
-          debug(err);
+          winston.error(err);
           reject(err);
         })
     });
@@ -133,11 +137,11 @@ server.register({ register: Chairo }, function (err) {
           return algoTopsisInit();
         })
         .then(() => {
-          debug("Cloud Ready!!")
+          winston.info("Cloud Ready!!")
           resolve();
         })
         .catch((err) => {
-          debug(err);
+          winston.error(err);
           reject(err);
         });
     })
@@ -151,7 +155,7 @@ server.register({ register: Chairo }, function (err) {
       // start the server
       server.start(function (err) {
         if (err) throw err;
-        debug("Server is running at", server.info.uri);
+        winston.info("Seneca Server is running at", server.info.uri);
         //startAnnouncements();
 
         // start cloud client and edge server after middleware is initialized

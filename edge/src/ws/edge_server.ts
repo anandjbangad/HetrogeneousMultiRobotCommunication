@@ -3,8 +3,7 @@ import * as itf from '../../../common/interfaces.d'
 import * as os from '../../../common/utils/os'
 import * as amqpStats from '../../../common/utils/ms_stats'
 import amqp = require('amqplib');
-import Debug = require('debug');
-let debug = Debug('edgeServer');
+import winston = require("winston")
 
 let reqCounter: number = 0;
 let rspCounter: number = 0;
@@ -20,7 +19,7 @@ interface deviceClient {
 let clientList: deviceClient[];
 var msg_count = 0;
 function onMessage(seneca, json_message) {
-  console.log('---->New Msg/Req received on EDGE Server AMQP', ++msg_count, rspCounter);
+  winston.debug('---->New Msg/Req received on EDGE Server AMQP', ++msg_count, rspCounter);
   reqCounter++;
   let message: any = JSON.parse(json_message.content);
   let msg: itf.i_edge_req;
@@ -53,7 +52,8 @@ function onMessage(seneca, json_message) {
       type: "result",
       task_id: reply.task_id,
       ttl: reply.ttl,
-      cmd_id: reply.cmd_id
+      cmd_id: reply.cmd_id,
+      sentTime: message.sentTime
     };
 
     if (typeof json_message.properties.replyTo !== 'undefined') {
@@ -74,7 +74,7 @@ export function establishRMBLocalConnection() {
       })
       .then((ch) => {
         amqpLocal.ch = ch;
-        debug("RMQ local connection established");
+        winston.info("RMQ local connection established");
       })
       .then((ch) => {
         amqpLocal.ch.assertQueue('d_task1_req', { durable: false });
@@ -87,7 +87,7 @@ export function establishRMBLocalConnection() {
   });
 }
 export function edgeStartConsuming(seneca) {
-  debug("starting consuming traffic!")
+  winston.info("starting consuming traffic!")
   //var jwt = require("jsonwebtoken");
 
   //start consuming rabbitmq server
@@ -106,7 +106,7 @@ export function edgeStartConsuming(seneca) {
     })
 };
 export function startPublishingLocalTopics() {
-  debug("starting publishing on local topics");
+  winston.info("starting publishing on local topics");
   var ex = "os_env";
   amqpLocal.ch.assertExchange(ex, 'fanout', { durable: false });
   setInterval(() => {
@@ -118,7 +118,7 @@ export function startPublishingLocalTopics() {
     }
     //ch.publish(ex, '', msg);
     amqpLocal.ch.publish(ex, '', new Buffer(JSON.stringify(msg)));
-    debug("Local Topic Publish %o", msg);
+    winston.verbose("Local Topic Publish ", msg);
   }, process.env.localTopicPublishPeriod);
 }
 interface NeighborNode {

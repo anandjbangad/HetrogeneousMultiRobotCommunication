@@ -1,5 +1,6 @@
 import Tesseract = require("tesseract.js");
 import * as itf from "../../common/interfaces.d"
+import winston = require("winston")
 
 export function Task3(edge_req: itf.i_edge_req) {
     return new Promise(function (resolve, reject) {

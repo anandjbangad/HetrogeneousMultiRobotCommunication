@@ -7,7 +7,7 @@ var exec = require('child_process').exec;
 var child;
 
 'use strict';
-
+import winston = require("winston")
 const Hapi = require('hapi');
 const Path = require("path");
 
@@ -28,14 +28,15 @@ server.connection({
     port: 8000
 });
 const io = require('socket.io').listen(server.listener);
-server.listener.io = io;
-server.io = io;
+// server.listener.io = io;
+// server.io = io;
 
 
 
-import * as myOS from "../../../common/utils/os"
-import * as amqpStats from "../../../common/utils/ms_stats"
+import * as myOS from "../common/utils/os"
+import * as amqpStats from "../common/utils/ms_stats"
 import { getCldMsgLatency, getCldTopics } from "../ws/cloud_client"
+import { noOfActiveCtx } from "../ws/edge_server"
 import { getProcessedMsgCount } from "../plugins/offload/service"
 
 // declare module "*!text" {
@@ -81,8 +82,8 @@ export function startCharting() {
         server.route({
             method: 'GET',
             path: '/',
-            handler: function (request, reply) {
-                reply.file('index.html');
+            handler: {
+                file: './index.html'
             }
         });
         server.route({
@@ -99,7 +100,7 @@ export function startCharting() {
                 throw err;
             }
 
-            console.log('Charting Server running at:', server.info.uri);
+            winston.info('Charting Server running at:', server.info.uri);
         });
 
 
@@ -116,7 +117,8 @@ export function startCharting() {
                             socket.emit('temperatureUpdate', date, temp);
                             socket.emit('cpu', date, values[0]);
                             socket.emit('freemem', date, values[1]);
-                            socket.emit('messages', date, (typeof getCldTopics() === 'undefined') ? 0 : getCldTopics().msgCount);
+                            socket.emit('message', date, (typeof getCldTopics() === 'undefined') ? 0 : getCldTopics().msgCount);
+                            socket.emit('messages', date, noOfActiveCtx());
                             socket.emit('cld_latency', date, getCldMsgLatency());
                             socket.emit('processed_msgs', date, getProcessedMsgCount());
                         })

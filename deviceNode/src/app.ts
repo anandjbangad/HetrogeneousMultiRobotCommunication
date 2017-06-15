@@ -12,6 +12,13 @@ import jwt = require('jsonwebtoken');
 import amqp = require('amqplib');
 import { startCharting } from "./charts/server"
 import * as myTask from "./task"
+import winston = require("winston")
+winston.remove(winston.transports.Console);
+winston.add(winston.transports.Console, {
+    timestamp: true,
+    level: process.env.LOGGING_LVL, //{ error: 0, warn: 1, info: 2, verbose: 3, debug: 4, silly: 5 }
+    colorize: true
+});
 
 var globalCtx: any = {};
 globalCtx.req_count = 0;
@@ -61,7 +68,6 @@ amqp.connect('amqp://' + process.env.EDGE_HOST)
         return globalCtx.amqp.ch.assertQueue('d_task1_rsp', { durable: false });
     })
     .then((q) => {
-        console.log(" [*] Waiting for messages in %s. To exit press CTRL+C");
         // return globalCtx.amqp.ch.consume('d_task1_rsp', (json_message) => {
         //     //console.log(" [x] Received %s", msg.content.toString());
         //     let message: itf.e_edge_rsp = JSON.parse(json_message.content);
@@ -72,7 +78,7 @@ amqp.connect('amqp://' + process.env.EDGE_HOST)
     .then(() => {
         //start sending requests
         setInterval(() => {
-            console.error("--Req:", globalCtx.req_count, "--Rsp:", globalCtx.rsp_count);
+            winston.info("--Req:", globalCtx.req_count, "--Rsp:", globalCtx.rsp_count);
         }, 10000);
         //task1(ws);
         task2(globalCtx);
@@ -80,7 +86,7 @@ amqp.connect('amqp://' + process.env.EDGE_HOST)
         startCharting();
     })
     .catch((err) => {
-        console.log(err);
+        winston.error(err);
     })
 // var ws = new WebSocket('ws://' + process.env.EDGE_HOST + ':' + process.env.EDGE_PORT + '/client', {
 //     sid: 'https://websocket.org'
@@ -163,3 +169,22 @@ amqp.connect('amqp://' + process.env.EDGE_HOST)
 
 
 //});
+let amqpLatency: any = {}
+amqp.connect('amqp://' + process.env.CLOUD_HOST)
+    .then((conn) => {
+        return conn.createChannel();
+    })
+    .then((ch) => {
+        amqpLatency.ch = ch;
+        let q = 'latency_upd';
+        return ch.assertQueue(q, { durable: false });
+    })
+    .then((q) => {
+        setInterval(() => {
+            let json_message_out = {
+                latency: myTask.getMovingAverage()
+            }
+            winston.debug("Sending to latency_upd");
+            amqpLatency.ch.sendToQueue('latency_upd', Buffer.from(JSON.stringify(json_message_out)));
+        }, 500)
+    })
