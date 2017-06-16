@@ -126,7 +126,8 @@ export class Neighbor {
             cmd_id: this.socketQueueId,
             payload: data.payload,
             ttl: data.ttl,
-            task_id: data.task_id
+            task_id: data.task_id,
+            sentTime: data.sentTime
         };
 
         try {

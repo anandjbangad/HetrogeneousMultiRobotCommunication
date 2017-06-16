@@ -2,7 +2,8 @@ import fs = require('fs');
 import Tesseract = require('tesseract.js')
 import os = require("../../../../common/utils/os.js");
 import * as itf from "../../../../common/interfaces.d"
-
+let exec = require('child_process').exec;
+import winston = require("winston")
 export function vision(globalCtx) {
     var seneca = this;
     //Plugin Init. Called when plugin is used for first time
@@ -27,17 +28,28 @@ export function vision(globalCtx) {
         Tesseract.recognize(decodedImage)
             .then(txtdata => {
                 console.log('Recognized Text: ', txtdata.text);
-                done(null, {
-                    result: txtdata.text
-                    //cmd_id: message.cmd_id
-                })
+                let rsp: itf.i_edge_rsp = {
+                    type: message.type,
+                    result: txtdata.text,
+                    cmd_id: message.cmd_id,
+                    task_id: message.task_id,
+                    ttl: message.ttl,   //ttl already reduces in offload module
+                    sentTime: message.sentTime
+                }
+                done(null, rsp)
             })
             .catch(err => {
                 console.log('catch: ', err);
-                done(null, {
-                    result: "Error!!!"
-                    //cmd_id: message.cmd_id
-                })
+                let rsp: itf.i_edge_rsp = {
+                    type: message.type,
+                    //result: message.payload + ' E(' + os.getIpAddr().split(".")[3] + ')',
+                    result: "Error Error!!",
+                    cmd_id: message.cmd_id,
+                    task_id: message.task_id,
+                    ttl: message.ttl,   //ttl already reduces in offload module
+                    sentTime: message.sentTime
+                }
+                done(null, rsp)
             })
             .finally(e => {
                 //console.log('finally\n');
@@ -45,27 +57,34 @@ export function vision(globalCtx) {
             });
         //done(null, { result: 'result for ' + message.msg.replace(/^\D+/g, '') }) //message.msg is image/text
     });
-    this.add({ role: 'visionRequest', cmd: 'visionTask2' }, function (message: itf.i_edge_req, done) {
-        //execute vision task locally
-        //console.log("visionTask: " + message.msg);
-        console.log("vision Request test 2222............");
+    this.add({ role: 'visionRequest', cmd: 'stressTask' }, function (message: itf.i_edge_req, done) {
+        winston.error("Stress task entered");
         let rsp: itf.i_edge_rsp = {
             type: message.type,
-            result: "dummy task",
+            result: message.payload + ' sE(' + process.env.IP_ADDR + ')',
+            //result: message.payload,
             cmd_id: message.cmd_id,
             task_id: message.task_id,
-            ttl: message.ttl //ttl already decremented in offload module
+            ttl: message.ttl,   //ttl already reduces in offload module
+            sentTime: message.sentTime
         }
-        done(null, rsp)
+        exec("stress-ng --cpu 1 --cpu-ops 900", function (error, stdout, stderr) {
+            if (error !== null) {
+                console.log('exec error: ' + error);
+            } else {
+                done(null, rsp);
+            }
+        });
     });
     this.add({ role: 'visionRequest', cmd: 'Task3' }, function (message: itf.i_edge_req, done) {
         let rsp: itf.i_edge_rsp = {
             type: message.type,
-            //result: message.payload + ' E(' + os.getIpAddr().split(".")[3] + ')',
-            result: message.payload,
+            result: message.payload + ' E(' + process.env.IP_ADDR + ')',
+            //result: message.payload,
             cmd_id: message.cmd_id,
             task_id: message.task_id,
-            ttl: message.ttl   //ttl already reduces in offload module
+            ttl: message.ttl,   //ttl already reduces in offload module
+            sentTime: message.sentTime
         }
         //takes .5sec to complete task
         setTimeout(() => {

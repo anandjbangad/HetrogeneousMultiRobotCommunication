@@ -14,7 +14,8 @@ let cloudTopicRsp: itf.cld_publish_topics = {
   activeCtx: 0
 };
 
-let maCldMsgLatency = MA(10 * 1000); // 5sec
+let maCldMsgLatency = MA(10 * 1000); // 10 sec
+let maCldMsgLatencyAvg = MA(20 * 60 * 1000); // 20 mins
 let maCldCPU = MA(5 * 1000); // 5sec
 let maCldfreemem = MA(5 * 1000); // 5sec
 let maCldMsgCount = MA(5 * 1000); // 5sec
@@ -26,7 +27,7 @@ let cloud_ws;
 //   this.amqpNeigh.ch.assertExchange(this.amqpNeigh.exchange.name, 'fanout', { durable: false });
 // }
 export function getCldMsgLatency() {
-  return maCldMsgLatency.movingAverage();
+  return [maCldMsgLatency.movingAverage(), maCldMsgLatencyAvg.movingAverage()];
 }
 export function getCldTopics(): itf.cld_publish_topics {
   return cloudTopicRsp;
@@ -100,6 +101,7 @@ export function cloudRMQRspQSetup() {
             let execFunc = (socketQueue["i_" + msg.properties.correlationId]).retFunc;
             // update moving avg
             maCldMsgLatency.push(Date.now(), Date.now() - (socketQueue["i_" + msg.properties.correlationId]).sendTime);
+            maCldMsgLatencyAvg.push(Date.now(), Date.now() - (socketQueue["i_" + msg.properties.correlationId]).sendTime);
             //call callback
             execFunc(cld_msg);
             delete socketQueue["i_" + msg.properties.correlationId]; // to free up memory.. and it is IMPORTANT thanks  Le Droid for the reminder
@@ -214,7 +216,8 @@ export function cloudSendDataAmqp(data, globalCtx, onReturnFunction) {
     cmd_id: socketQueueId,
     payload: data.payload,
     task_id: data.task_id,
-    ttl: data.ttl
+    ttl: data.ttl,
+    sentTime: data.sentTime
   };
   try {
     amqpCloud.ch.assertQueue(amqpCloud.sendReqQ, { durable: false });

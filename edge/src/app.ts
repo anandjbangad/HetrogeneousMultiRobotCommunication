@@ -77,7 +77,7 @@ import { establishRMBCloudConnection, webSocketCloudConn, subscribeCloudTopics, 
 var globalCtx: any = {};
 
 // Register plugin
-server.register({ register: Chairo }, function (err) {
+server.register({ register: Chairo, options: { timeout: 10 * 60 * 1000 } }, function (err) {
   // Add a Seneca action
 
   let id = 0;

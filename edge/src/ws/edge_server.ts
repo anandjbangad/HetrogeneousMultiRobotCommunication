@@ -23,21 +23,23 @@ function onMessage(seneca, json_message) {
   reqCounter++;
   let message: any = JSON.parse(json_message.content);
   let msg: itf.i_edge_req;
-  if (typeof (message["cmd_id"]) === "undefined") {
+  if (typeof (message["cmd_id"]) === "undefined") { //from device layer
     msg = {
       payload: message.payload,
       cmd_id: 0,
       type: message.type,
       ttl: 5,
-      task_id: message.task_id
+      task_id: message.task_id,
+      sentTime: message.sentTime
     };
-  } else {
+  } else { //from neighboring node
     msg = {
       payload: message.payload,
       cmd_id: message.cmd_id,
       type: message.type,
       ttl: message.ttl,
-      task_id: message.task_id
+      task_id: message.task_id,
+      sentTime: message.sentTime
     };
   }
 

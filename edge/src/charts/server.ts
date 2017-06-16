@@ -111,15 +111,23 @@ export function startCharting() {
                         console.log('exec error: ' + error);
                     } else {
                         Promise.all([myOS.getCPU(), myOS.getFreeRam()]).then(values => {
-                            // You must send time (X axis) and a temperature value (Y axis)
                             var date = new Date().getTime();
                             var temp = parseFloat(stdout) / 1000;
                             socket.emit('temperatureUpdate', date, temp);
-                            socket.emit('cpu', date, values[0]);
+                            socket.emit('cpuMem', date, {
+                                cpu: values[0],
+                                freeMem: values[1]
+                            });
                             socket.emit('freemem', date, values[1]);
-                            socket.emit('message', date, (typeof getCldTopics() === 'undefined') ? 0 : getCldTopics().msgCount);
-                            socket.emit('messages', date, noOfActiveCtx());
-                            socket.emit('cld_latency', date, getCldMsgLatency());
+                            //socket.emit('message', date, (typeof getCldTopics() === 'undefined') ? 0 : getCldTopics().msgCount);
+                            socket.emit('activeCtx', date, {
+                                edge: noOfActiveCtx(),
+                                cloud: getCldTopics().activeCtx
+                            });
+                            socket.emit('cld_latency', date, {
+                                avg10sec: getCldMsgLatency()[0],
+                                avg: getCldMsgLatency()[1]
+                            });
                             socket.emit('processed_msgs', date, getProcessedMsgCount());
                         })
                     }

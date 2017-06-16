@@ -5,7 +5,7 @@ import Tesseract = require("tesseract.js");
 import rbush = require("rbush");
 import knn = require("rbush-knn");
 import * as itf from "../../common/interfaces.d"
-import { Task3, visionTask1 } from "./task"
+import { Task3, visionTask1, stressTask } from "./task"
 import amqp = require('amqplib');
 import os = require("../../common/utils/os")
 import { getQueueStats, startMonitoringQueueStats } from "../../common/utils/ms_stats"
@@ -96,11 +96,25 @@ amqp.connect('amqp://localhost')
       winston.debug("reply to ", msg.properties.replyTo);
 
       let message: itf.i_edge_req = JSON.parse(msg.content);
-      Task3(message)
-        .then((edge_rsp: itf.i_edge_rsp) => {
-          ch.sendToQueue(msg.properties.replyTo, Buffer.from(JSON.stringify(edge_rsp)), { correlationId: msg.properties.correlationId });
-          rspCounter++;
-        });
+      if (message.task_id == 1) {
+        Task3(message)
+          .then((edge_rsp: itf.i_edge_rsp) => {
+            ch.sendToQueue(msg.properties.replyTo, Buffer.from(JSON.stringify(edge_rsp)), { correlationId: msg.properties.correlationId });
+            rspCounter++;
+          });
+      } else if (message.task_id == 2) {
+        visionTask1(message)
+          .then((edge_rsp: itf.i_edge_rsp) => {
+            ch.sendToQueue(msg.properties.replyTo, Buffer.from(JSON.stringify(edge_rsp)), { correlationId: msg.properties.correlationId });
+            rspCounter++;
+          });
+      } else if (message.task_id == 3) {
+        stressTask(message)
+          .then((edge_rsp: itf.i_edge_rsp) => {
+            ch.sendToQueue(msg.properties.replyTo, Buffer.from(JSON.stringify(edge_rsp)), { correlationId: msg.properties.correlationId });
+            rspCounter++;
+          });
+      }
     }, { noAck: true });
   })
   .then(() => {

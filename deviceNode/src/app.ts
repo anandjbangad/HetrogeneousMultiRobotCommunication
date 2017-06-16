@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 config({ path: "./.env" });
 import path = require('path');
-import { task1, task2 } from "./task";
+import { task1, task2, stressTask } from "./task";
 
 import Tesseract = require('tesseract.js')
 
@@ -81,7 +81,10 @@ amqp.connect('amqp://' + process.env.EDGE_HOST)
             winston.info("--Req:", globalCtx.req_count, "--Rsp:", globalCtx.rsp_count);
         }, 10000);
         //task1(ws);
-        task2(globalCtx);
+        //task1(globalCtx);
+        stressTask(globalCtx);
+        //task2(globalCtx);
+
         //start plotting charts
         startCharting();
     })
@@ -182,7 +185,7 @@ amqp.connect('amqp://' + process.env.CLOUD_HOST)
     .then((q) => {
         setInterval(() => {
             let json_message_out = {
-                latency: myTask.getMovingAverage()
+                latency: myTask.getMovingAverage()[0]
             }
             winston.debug("Sending to latency_upd");
             amqpLatency.ch.sendToQueue('latency_upd', Buffer.from(JSON.stringify(json_message_out)));

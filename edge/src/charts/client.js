@@ -1,10 +1,28 @@
 // I create a WebSocket . Put the IP of your Raspberry Pi!
 var socket = io.connect('http://0.0.0.0:8000/');
 //        var socket = io.connect('http://10.0.10.239:8000/'); //not working
+
+document.getElementById("downloadAll").addEventListener("click", function () {
+    chart1.exportChartLocal();
+    chart2.exportChartLocal();
+    chart3.exportChartLocal();
+    chart4.exportChartLocal();
+    chart5.exportChartLocal();
+    chart6.exportChartLocal();
+}, false);
+
+
 // I create a new object 'Chart1'
 var chart1 = new Highcharts.Chart({
     credits: {
         enabled: false
+    },
+    exporting: {
+        filename: "chart_edge_cpu_temperature",
+        sourceHeight: 500,
+        scale: 1,//(default = 2)
+        sourceWidth: 1000,
+        type: "image/png"
     },
     chart: {
         renderTo: 'chart1',
@@ -52,15 +70,22 @@ var chart2 = new Highcharts.Chart({
     credits: {
         enabled: false
     },
+    exporting: {
+        filename: "chart_edge_cpu_mem_utilization",
+        sourceHeight: 500,
+        scale: 1,//(default = 2)
+        sourceWidth: 1000,
+        type: "image/png"
+    },
     chart: {
         renderTo: 'chart2',
         defaultSeriesType: 'spline',
         events: {
             load: function () {
                 // Each time you receive a value from the socket, I put it on the graph
-                socket.on('cpu', function (time, cpuUtil) {
-                    var series = chart2.series[0];
-                    series.addPoint([time, cpuUtil]);
+                socket.on('cpuMem', function (time, data) {
+                    chart2.series[0].addPoint([time, data.cpu]);
+                    chart2.series[1].addPoint([time, data.freeMem]);
                 });
             }
         }
@@ -69,7 +94,7 @@ var chart2 = new Highcharts.Chart({
         selected: 100
     },
     title: {
-        text: 'CPU Utilization'
+        text: 'CPU & Memory Utilization'
     },
     xAxis: {
         type: 'datetime',
@@ -80,18 +105,29 @@ var chart2 = new Highcharts.Chart({
         minPadding: 0.2,
         maxPadding: 0.2,
         title: {
-            text: 'CPU %',
-            margin: 80
+            text: 'Utilization Ratio',
+            margin: 40
         }
     },
     series: [{
-        name: 'CPU util',
+        name: 'CPU Utilization',
+        data: []
+    },
+    {
+        name: 'Free Memory',
         data: []
     }]
 });
 var chart3 = new Highcharts.Chart({
     credits: {
         enabled: false
+    },
+    exporting: {
+        filename: "chart_edge_free_memory",
+        sourceHeight: 500,
+        scale: 1,//(default = 2)
+        sourceWidth: 1000,
+        type: "image/png"
     },
     chart: {
         renderTo: 'chart3',
@@ -122,7 +158,7 @@ var chart3 = new Highcharts.Chart({
         maxPadding: 0.2,
         title: {
             text: 'freemem',
-            margin: 80
+            margin: 40
         }
     },
     series: [{
@@ -134,17 +170,24 @@ var chart4 = new Highcharts.Chart({
     credits: {
         enabled: false
     },
+    exporting: {
+        filename: "chart_edge_active_ctx_count",
+        sourceHeight: 500,
+        scale: 1,//(default = 2)
+        sourceWidth: 1000,
+        type: "image/png"
+    },
     chart: {
         renderTo: 'chart4',
         defaultSeriesType: 'spline',
         events: {
             load: function () {
                 // Each time you receive a value from the socket, I put it on the graph
-                socket.on('messages', function (time, result) {
-                    var series = chart4.series[0];
+                socket.on('activeCtx', function (time, result) {
                     //chart4.series[0].addPoint([time, result['messages']]);
                     //chart4.series[1].addPoint([time, result['messages_ready']]);
-                    chart4.series[0].addPoint([time, result]);
+                    chart4.series[0].addPoint([time, result.edge]);
+                    chart4.series[1].addPoint([time, result.cloud]);
                 });
             }
         }
@@ -153,7 +196,7 @@ var chart4 = new Highcharts.Chart({
         selected: 100
     },
     title: {
-        text: 'Message Broker - Queued Msgs'
+        text: 'Number of Active Context'
     },
     xAxis: {
         type: 'datetime',
@@ -164,21 +207,28 @@ var chart4 = new Highcharts.Chart({
         minPadding: 0.2,
         maxPadding: 0.2,
         title: {
-            text: 'Queued msg Count',
-            margin: 80
+            text: 'Active Context Count',
+            margin: 40
         }
     },
     series: [{
-        name: 'c_task1_req',
+        name: 'Edge Node',
         data: []
     }, {
-        name: 'd_task1_req',
+        name: 'Cloud Node',
         data: []
     }]
 });
 var chart5 = new Highcharts.Chart({
     credits: {
         enabled: false
+    },
+    exporting: {
+        filename: "chart_edge_cloud_latency",
+        sourceHeight: 500,
+        scale: 1,//(default = 2)
+        sourceWidth: 1000,
+        type: "image/png"
     },
     chart: {
         renderTo: 'chart5',
@@ -187,8 +237,8 @@ var chart5 = new Highcharts.Chart({
             load: function () {
                 // Each time you receive a value from the socket, I put it on the graph
                 socket.on('cld_latency', function (time, result) {
-                    var series = chart5.series[0];
-                    chart5.series[0].addPoint([time, result]);
+                    chart5.series[0].addPoint([time, result.avg10sec]);
+                    chart5.series[1].addPoint([time, result.avg]);
                 });
             }
         }
@@ -197,7 +247,7 @@ var chart5 = new Highcharts.Chart({
         selected: 100
     },
     title: {
-        text: 'Cloud Latency (MM=10sec)'
+        text: 'Cloud Node Task Response Latency'
     },
     xAxis: {
         type: 'datetime',
@@ -209,17 +259,28 @@ var chart5 = new Highcharts.Chart({
         maxPadding: 0.2,
         title: {
             text: 'Latency in ms',
-            margin: 80
+            margin: 40
         }
     },
     series: [{
-        name: 'cld_latency_ms',
+        name: 'Latency MM=10sec',
+        data: []
+    },
+    {
+        name: 'Latency Average',
         data: []
     }]
 });
 var chart6 = new Highcharts.Chart({
     credits: {
         enabled: false
+    },
+    exporting: {
+        filename: "chart_edge_offload_jobs_ratio",
+        sourceHeight: 500,
+        scale: 1,//(default = 2)
+        sourceWidth: 1000,
+        type: "image/png"
     },
     chart: {
         renderTo: 'chart6',
@@ -240,7 +301,7 @@ var chart6 = new Highcharts.Chart({
         selected: 100
     },
     title: {
-        text: 'Msgs Offload Ratio'
+        text: 'Jobs Offload Ratio'
     },
     xAxis: {
         type: 'datetime',
@@ -251,15 +312,15 @@ var chart6 = new Highcharts.Chart({
         minPadding: 0.2,
         maxPadding: 0.2,
         title: {
-            text: 'Ratio',
-            margin: 80
+            text: 'Offload Ratio',
+            margin: 40
         }
     },
     series: [{
-        name: 'neigh/local',
+        name: 'Neighbors/Local',
         data: []
     }, {
-        name: 'cld/local',
+        name: 'Cloud/Local',
         data: []
     }]
 });

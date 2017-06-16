@@ -39,11 +39,16 @@ export function offload(globalCtx) {
     //execute taks locally only
     let num: number = Math.floor(Math.random() * 3);
     message.ttl = message.ttl - 1;
-    message.payload = message.payload + ' E(' + process.env.IP_ADDR + ')';
+    //message.payload = message.payload + ' E(' + process.env.IP_ADDR + ')';
     //ttl expired -> process locally
     if (message.ttl <= 0) {
+      let dict = {
+        1: "Task3",
+        2: "visionTask1",
+        3: "stressTask"
+      }
       seneca.act(
-        { role: "visionRequest", cmd: "Task3" },
+        { role: "visionRequest", cmd: dict[message.task_id] },
         message,
         function (err, reply: itf.i_edge_rsp) {
           done(null, reply);
@@ -62,7 +67,7 @@ export function offload(globalCtx) {
           msgCountNeigh++;
           //message.payload = message.payload + ' E(' + os.getIpAddr().split(".")[3] + ')';
           let neighborCount = neigh.Neighbors.getInstance().getAllNeighbor().length;
-          message.payload = message.payload + ' N ';
+          //message.payload = message.payload + ' N ';
           console.log(neigh.Neighbors.getInstance().getAllNeighbor()[num - 2].ipAddr);
           //neigh.Neighbors.getInstance().getAllNeighbor()[0].test();
           //correct ctx in neighborsenddata since called from neighbor class
@@ -92,8 +97,13 @@ export function offload(globalCtx) {
           //     done(null, reply)
           // })
           //if queue is empty, run the task now otherwise enque in queue
+          let dict = {
+            1: "Task3",
+            2: "visionTask1",
+            3: "stressTask"
+          }
           seneca.act(
-            { role: "visionRequest", cmd: "Task3" },
+            { role: "visionRequest", cmd: dict[message.task_id] },
             message,
             function (err, reply: itf.i_edge_rsp) {
               done(null, reply);
