@@ -1,12 +1,15 @@
 import { Neighbors } from "../neighbors"
 import * as itf from '../../../common/interfaces.d'
 import * as os from '../../../common/utils/os'
-import * as amqpStats from '../../../common/utils/ms_stats'
+//import * as amqpStats from '../../../common/utils/ms_stats'
 import amqp = require('amqplib');
 import winston = require("winston")
+import MA = require('moving-average');
+import { startCharting } from "../charts/server"
 
 let reqCounter: number = 0;
 let rspCounter: number = 0;
+let maNodeLatency = MA(10 * 1000); // 10 sec
 export function noOfActiveCtx(): number {
   return reqCounter - rspCounter;
 }
@@ -18,17 +21,26 @@ interface deviceClient {
 }
 let clientList: deviceClient[];
 var msg_count = 0;
+export function getNodeMsgLatency() {
+  return maNodeLatency.movingAverage() || 0;
+}
+
 function onMessage(seneca, json_message) {
   winston.debug('---->New Msg/Req received on EDGE Server AMQP', ++msg_count, rspCounter);
   reqCounter++;
+  let startTime = Date.now();
   let message: any = JSON.parse(json_message.content);
+  if (message.type == "startChart") {
+    startCharting();
+    return;
+  }
   let msg: itf.i_edge_req;
   if (typeof (message["cmd_id"]) === "undefined") { //from device layer
     msg = {
       payload: message.payload,
       cmd_id: 0,
       type: message.type,
-      ttl: 5,
+      ttl: message.ttl,
       task_id: message.task_id,
       sentTime: message.sentTime
     };
@@ -66,6 +78,7 @@ function onMessage(seneca, json_message) {
       amqpLocal.ch.sendToQueue('d_task1_rsp', Buffer.from(JSON.stringify(json_message_out)));
     }
     rspCounter++;
+    maNodeLatency.push(Date.now(), Date.now() - startTime);
   });
 }
 export function establishRMBLocalConnection() {
@@ -99,7 +112,6 @@ export function edgeStartConsuming(seneca) {
       return amqpLocal.ch.assertQueue(q, { durable: false });
     }).then((q) => {
       amqpLocal.ch.consume(q.queue, (msg) => {
-        //console.log(" [x] Received %s", msg.content.toString());
         onMessage(seneca, msg);
       }, { noAck: true })
     })
@@ -115,7 +127,8 @@ export function startPublishingLocalTopics() {
     let msg: itf.cld_publish_topics = {
       cpu: os.getCPUNow(),
       freemem: os.getFreeRam(),
-      msgCount: amqpStats.getQueueStats('d_task1_req').messages,
+      jobLatency: maNodeLatency.movingAverage() || 1,
+      //msgCount: amqpStats.getQueueStats('d_task1_req').messages,
       activeCtx: reqCounter - rspCounter
     }
     //ch.publish(ex, '', msg);

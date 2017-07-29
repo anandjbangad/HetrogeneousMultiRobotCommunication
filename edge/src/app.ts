@@ -47,7 +47,7 @@ if (!process.env.UUID) {
 import { cleandb } from "./storage.js";
 cleandb();
 import { startOSMonitoring } from "./../../common/utils/os";
-import { startMonitoringQueueStats } from "./../../common/utils/ms_stats";
+//import { startMonitoringQueueStats } from "./../../common/utils/ms_stats";
 
 import { startCharting } from "./charts/server"
 
@@ -116,7 +116,7 @@ server.register({ register: Chairo, options: { timeout: 10 * 60 * 1000 } }, func
         .then((res) => {
           startPublishingLocalTopics();
           //d_task1_req queue needs to be asserter before starting monitoring
-          startMonitoringQueueStats('d_task1_req'); //assume synchronous
+          //startMonitoringQueueStats('d_task1_req'); //assume synchronous
           winston.info("Local setup done");
           resolve();
         })
@@ -169,7 +169,7 @@ server.register({ register: Chairo, options: { timeout: 10 * 60 * 1000 } }, func
   Promise.all([startSenecaServer(), startCloud(), startLocal()])
     .then((values) => {
       edgeStartConsuming(server.seneca);
-      startCharting();
+      //startCharting();
     });
   //establish websocket connection to cloud
   webSocketCloudConn();

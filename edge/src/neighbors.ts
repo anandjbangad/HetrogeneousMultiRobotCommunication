@@ -35,7 +35,7 @@ export class Neighbor {
         this.amqpNeigh.topicsUpdateMsg = <itf.cld_publish_topics>{
             cpu: 0,
             freemem: 0,
-            msgCount: 0,
+            jobLatency: 1,
             activeCtx: 0
         };
         this.socketQueueId = 0;

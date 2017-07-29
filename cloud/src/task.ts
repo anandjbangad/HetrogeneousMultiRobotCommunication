@@ -26,7 +26,7 @@ export function stressTask(edge_req: itf.i_edge_req) {
             ttl: edge_req.ttl - 1,
             sentTime: edge_req.sentTime
         };
-        exec("stress-ng --cpu 1 --cpu-ops 900", function (error, stdout, stderr) {
+        exec("stress-ng --cpu 1 --cpu-ops 90", function (error, stdout, stderr) {
             if (error !== null) {
                 console.log('exec error: ' + error);
             } else {

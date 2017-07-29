@@ -9,6 +9,7 @@ import { Task3, visionTask1, stressTask } from "./task"
 import amqp = require('amqplib');
 import os = require("../../common/utils/os")
 import { getQueueStats, startMonitoringQueueStats } from "../../common/utils/ms_stats"
+import MA = require('moving-average');
 import winston = require("winston")
 winston.remove(winston.transports.Console);
 winston.add(winston.transports.Console, {
@@ -57,6 +58,7 @@ var NodeList = cloudDB.model("NodeList", nodeListSchema);
 // });
 let reqCounter: number = 0;
 let rspCounter: number = 0;
+let maNodeJobLatency = MA(5 * 1000); // 5sec
 
 function getRemoteIPInfoOnServer(ws) {
   return {
@@ -91,6 +93,7 @@ amqp.connect('amqp://localhost')
     winston.info(" started listening for messages in %s", q);
     ch.consume(q, (msg) => {
       reqCounter++;
+      let startTime = Date.now();
       winston.debug("Received %s", msg.content.toString());
       ch.assertQueue(msg.properties.replyTo, { durable: false });
       winston.debug("reply to ", msg.properties.replyTo);
@@ -115,6 +118,7 @@ amqp.connect('amqp://localhost')
             rspCounter++;
           });
       }
+      maNodeJobLatency.push(Date.now(), Date.now() - startTime);
     }, { noAck: true });
   })
   .then(() => {
@@ -130,7 +134,8 @@ amqp.connect('amqp://localhost')
           // freemem: os.getFreeRam() + (Math.random() * 0.1 - 0.05),
           cpu: values[0],
           freemem: os.getFreeRam(),
-          msgCount: values[1],
+          //msgCount: values[1],
+          jobLatency: maNodeJobLatency.movingAverage() || 1,
           activeCtx: reqCounter - rspCounter
         }
         amqpCloud.ch.publish(ex, '', new Buffer(JSON.stringify(msg)));

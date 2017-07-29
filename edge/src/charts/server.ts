@@ -10,7 +10,9 @@ var child;
 import winston = require("winston")
 const Hapi = require('hapi');
 const Path = require("path");
+import neigh = require("../neighbors.js");
 
+let isChartStarted = false;
 // Create a server with a host and port
 const server = new Hapi.Server({
     connections: {
@@ -34,11 +36,12 @@ const io = require('socket.io').listen(server.listener);
 
 
 import * as myOS from "../common/utils/os"
-import * as amqpStats from "../common/utils/ms_stats"
+//import * as amqpStats from "../common/utils/ms_stats"
 import { getCldMsgLatency, getCldTopics } from "../ws/cloud_client"
-import { noOfActiveCtx } from "../ws/edge_server"
+import { noOfActiveCtx, getNodeMsgLatency } from "../ws/edge_server"
 import { getProcessedMsgCount } from "../plugins/offload/service"
 
+let myChartServerStartTime: number = 0;
 // declare module "*!text" {
 //     const content: string;
 //     export default content;
@@ -59,6 +62,12 @@ import { getProcessedMsgCount } from "../plugins/offload/service"
 //     });
 // }
 export function startCharting() {
+    if (isChartStarted == true) {
+        winston.error("Chart is already started!!!!!!!!")
+        return;
+    }
+    isChartStarted = true;
+    myChartServerStartTime = Date.now();
     server.register(require('inert'), (err) => {
 
         if (err) {
@@ -111,7 +120,7 @@ export function startCharting() {
                         console.log('exec error: ' + error);
                     } else {
                         Promise.all([myOS.getCPU(), myOS.getFreeRam()]).then(values => {
-                            var date = new Date().getTime();
+                            var date = Math.floor((new Date().getTime() - myChartServerStartTime) / 1000);
                             var temp = parseFloat(stdout) / 1000;
                             socket.emit('temperatureUpdate', date, temp);
                             socket.emit('cpuMem', date, {
@@ -124,11 +133,23 @@ export function startCharting() {
                                 edge: noOfActiveCtx(),
                                 cloud: getCldTopics().activeCtx
                             });
+                            let neigh1Avg = 0;
+                            let neigh2Avg = 0;
+                            try {
+                                neigh1Avg = neigh.Neighbors.getInstance().getAllNeighbor()[0].amqpNeigh.topicsUpdateMsg.jobLatency;
+                                neigh2Avg = neigh.Neighbors.getInstance().getAllNeighbor()[1].amqpNeigh.topicsUpdateMsg.jobLatency;
+                            } catch (e) {
+                                winston.debug("Neighbors not present when charting")
+                            }
                             socket.emit('cld_latency', date, {
-                                avg10sec: getCldMsgLatency()[0],
-                                avg: getCldMsgLatency()[1]
+                                cldavg10sec: getCldMsgLatency()[0],
+                                cldavg: getCldMsgLatency()[1],
+                                nodeAvg: getNodeMsgLatency(),
+                                neigh1Avg: neigh1Avg,
+                                neigh2Avg: neigh2Avg
                             });
                             socket.emit('processed_msgs', date, getProcessedMsgCount());
+                            winston.debug("msg is", getProcessedMsgCount())
                         })
                     }
                 });

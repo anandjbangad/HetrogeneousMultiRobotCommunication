@@ -1,9 +1,9 @@
 import neigh = require("../../neighbors.js");
 import { getCldTopics } from "../../ws/cloud_client"
-import { noOfActiveCtx } from "../../ws/edge_server"
+import { noOfActiveCtx, getNodeMsgLatency } from "../../ws/edge_server"
 import * as itf from "../../../../common/interfaces.d"
 import * as os from "../../../../common/utils/os"
-import * as amqpStats from "../../../../common/utils/ms_stats"
+//import * as amqpStats from "../../../../common/utils/ms_stats"
 import math = require('mathjs');
 import amqp = require('amqplib');
 import winston = require("winston")
@@ -14,7 +14,7 @@ let socketQueue: any = {};
 export function algoTopsisInit() {
     return new Promise(function (resolve, reject) {
         //amqp.connect('amqp://localhost') //cloud url TODO
-        amqp.connect('amqp://' + process.env.CLOUD_HOST) //cloud url TODO
+        amqp.connect('amqp://' + process.env.PYTHON_HOST) //cloud url TODO
             .then((conn) => {
                 return conn.createChannel();
             })
@@ -73,7 +73,7 @@ export function algoTopsis(onReturnFunction) {
         }
         let noOfNeigh = neigh.Neighbors.getInstance().getActiveNeighborCount(); //getAllNeighbor().length;
         let jsonData: itf.i_python_req = {
-            type: "neighmsg",
+            type: "neighmsg" + ' E(' + process.env.IP_ADDR + ')',
             payload: "mypayload",
             matrix: createArray(noOfNeigh),
             n_alternatives: 2 + noOfNeigh,
@@ -95,15 +95,15 @@ export function algoTopsis(onReturnFunction) {
 function createArray(noOfNeigh: number) {
     let dataset: number[] = [];
     //local
-    dataset.push(os.getCPUNow(), os.getFreeRam(), amqpStats.getQueueStats("d_task1_req").messages || 1, noOfActiveCtx());
+    dataset.push(os.getCPUNow(), os.getFreeRam(), getNodeMsgLatency(), noOfActiveCtx());
     //cloud
     let cldTopicRsp: itf.cld_publish_topics = getCldTopics();
-    dataset.push(cldTopicRsp.cpu, cldTopicRsp.freemem, cldTopicRsp.msgCount.messages || 1, cldTopicRsp.activeCtx)
+    dataset.push(cldTopicRsp.cpu, cldTopicRsp.freemem, cldTopicRsp.jobLatency, cldTopicRsp.activeCtx)
 
     for (let i = 0; i != noOfNeigh; ++i) {
         dataset.push(neigh.Neighbors.getInstance().getAllNeighbor()[i].amqpNeigh.topicsUpdateMsg.cpu);
         dataset.push(neigh.Neighbors.getInstance().getAllNeighbor()[i].amqpNeigh.topicsUpdateMsg.freemem)
-        dataset.push(neigh.Neighbors.getInstance().getAllNeighbor()[i].amqpNeigh.topicsUpdateMsg.msgCount.messages || 1);
+        dataset.push(neigh.Neighbors.getInstance().getAllNeighbor()[i].amqpNeigh.topicsUpdateMsg.jobLatency);
         dataset.push(neigh.Neighbors.getInstance().getAllNeighbor()[i].amqpNeigh.topicsUpdateMsg.activeCtx);
     }
     return dataset;
@@ -140,7 +140,7 @@ export function algoTopsisLocal() {
                         dataset.subset(math.index(index[0], index[1]), cldTopicRsp.cpu);
                         break;
                     case 2: //messages
-                        dataset.subset(math.index(index[0], index[1]), cldTopicRsp.msgCount.messages || 1);
+                        dataset.subset(math.index(index[0], index[1]), cldTopicRsp.jobLatency);
                         break;
                     default:
                         winston.error("Unknown criteria in topsis algorithm for cloud");
@@ -155,7 +155,7 @@ export function algoTopsisLocal() {
                         dataset.subset(math.index(index[0], index[1]), neigh.Neighbors.getInstance().getAllNeighbor()[index[1] - 1].amqpNeigh.topicsUpdateMsg.cpu);
                         break;
                     case 2:
-                        dataset.subset(math.index(index[0], index[1]), neigh.Neighbors.getInstance().getAllNeighbor()[index[1] - 1].amqpNeigh.topicsUpdateMsg.msgCount.messages || 1);
+                        dataset.subset(math.index(index[0], index[1]), neigh.Neighbors.getInstance().getAllNeighbor()[index[1] - 1].amqpNeigh.topicsUpdateMsg.jobLatency);
                         break;
                     default:
                         winston.error("Unknown criteria in topsis algorithm for neighbor");

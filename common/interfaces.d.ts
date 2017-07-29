@@ -42,7 +42,7 @@ export interface cld_edge_getNeighbors {
 export interface cld_publish_topics {
     cpu: number,
     freemem: number,
-    msgCount: number,
+    jobLatency: number,
     activeCtx: number
 }
 

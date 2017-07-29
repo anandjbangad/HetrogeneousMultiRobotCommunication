@@ -5,17 +5,18 @@ import ipaddr = require('ipaddr.js');
 import * as itf from "../../../common/interfaces.d"
 import amqp = require('amqplib');
 import MA = require('moving-average');
+import SA = require('simple-average');
 import winston = require("winston")
 
 let cloudTopicRsp: itf.cld_publish_topics = {
   cpu: 0,
   freemem: 0,
-  msgCount: 0,
+  jobLatency: 1,
   activeCtx: 0
 };
 
 let maCldMsgLatency = MA(10 * 1000); // 10 sec
-let maCldMsgLatencyAvg = MA(20 * 60 * 1000); // 20 mins
+let maCldMsgLatencyAvg = SA(); // 20 mins
 let maCldCPU = MA(5 * 1000); // 5sec
 let maCldfreemem = MA(5 * 1000); // 5sec
 let maCldMsgCount = MA(5 * 1000); // 5sec
@@ -27,7 +28,7 @@ let cloud_ws;
 //   this.amqpNeigh.ch.assertExchange(this.amqpNeigh.exchange.name, 'fanout', { durable: false });
 // }
 export function getCldMsgLatency() {
-  return [maCldMsgLatency.movingAverage(), maCldMsgLatencyAvg.movingAverage()];
+  return [maCldMsgLatency.movingAverage(), maCldMsgLatencyAvg.avg];
 }
 export function getCldTopics(): itf.cld_publish_topics {
   return cloudTopicRsp;
@@ -101,7 +102,7 @@ export function cloudRMQRspQSetup() {
             let execFunc = (socketQueue["i_" + msg.properties.correlationId]).retFunc;
             // update moving avg
             maCldMsgLatency.push(Date.now(), Date.now() - (socketQueue["i_" + msg.properties.correlationId]).sendTime);
-            maCldMsgLatencyAvg.push(Date.now(), Date.now() - (socketQueue["i_" + msg.properties.correlationId]).sendTime);
+            maCldMsgLatencyAvg.add(Date.now() - (socketQueue["i_" + msg.properties.correlationId]).sendTime);
             //call callback
             execFunc(cld_msg);
             delete socketQueue["i_" + msg.properties.correlationId]; // to free up memory.. and it is IMPORTANT thanks  Le Droid for the reminder

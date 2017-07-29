@@ -14,9 +14,9 @@ import { algoTopsis } from "./algo_topsis"
 //define array to store neighbors
 import MA = require('moving-average');
 var ma = MA(5 * 1000); // 5sec
-let msgCountCloud = 0;
-let msgCountNeigh = 0;
-let msgCountLocal = 0;
+let msgCountCloud = 1;
+let msgCountNeigh = 1;
+let msgCountLocal = 1;
 export function getProcessedMsgCount() {
   return [msgCountLocal, msgCountNeigh, msgCountCloud];
 }
@@ -39,7 +39,10 @@ export function offload(globalCtx) {
     //execute taks locally only
     let num: number = Math.floor(Math.random() * 3);
     message.ttl = message.ttl - 1;
-    //message.payload = message.payload + ' E(' + process.env.IP_ADDR + ')';
+    winston.silly("Message ttl is ", message.ttl);
+    if (message.task_id == 1 || message.task_id == 3) {
+      message.payload = message.payload + ' E(' + process.env.IP_ADDR + ')';
+    }
     //ttl expired -> process locally
     if (message.ttl <= 0) {
       let dict = {
@@ -47,6 +50,7 @@ export function offload(globalCtx) {
         2: "visionTask1",
         3: "stressTask"
       }
+      msgCountLocal++;
       seneca.act(
         { role: "visionRequest", cmd: dict[message.task_id] },
         message,

@@ -13,6 +13,7 @@ import amqp = require('amqplib');
 import { startCharting } from "./charts/server"
 import * as myTask from "./task"
 import winston = require("winston")
+let argv = require('minimist')(process.argv.slice(2));
 winston.remove(winston.transports.Console);
 winston.add(winston.transports.Console, {
     timestamp: true,
@@ -24,6 +25,9 @@ var globalCtx: any = {};
 globalCtx.req_count = 0;
 globalCtx.rsp_count = 0;
 myTask.taskInit(globalCtx);
+if (typeof argv.d != "undefined") {
+    myTask.setDelayBwTask(argv.d);
+}
 // direct way
 // set content-type header and data as json in args parameter
 var args = jwt.sign({
@@ -52,8 +56,8 @@ import fs = require("fs");
 //console.log("token received is ", data.token);
 //imported from core module
 //import WebSocket = require('ws');
-amqp.connect('amqp://' + process.env.EDGE_HOST)
-    // amqp.connect('amqp://' + "10.0.10.242")
+//amqp.connect('amqp://' + process.env.EDGE_HOST)
+amqp.connect('amqp://' + "10.0.10.240")
     .then((conn) => {
         return conn.createChannel();
     })
@@ -78,12 +82,24 @@ amqp.connect('amqp://' + process.env.EDGE_HOST)
     .then(() => {
         //start sending requests
         setInterval(() => {
-            winston.info("--Req:", globalCtx.req_count, "--Rsp:", globalCtx.rsp_count);
+            winston.info("--Req:", globalCtx.req_count, "--Rsp:", globalCtx.rsp_count, "Latency Mean", myTask.getMovingAverage()[1]);
         }, 10000);
         //task1(ws);
-        //task1(globalCtx);
-        stressTask(globalCtx);
-        //task2(globalCtx);
+        globalCtx.amqp.ch.sendToQueue('d_task1_req', Buffer.from(JSON.stringify({ type: "startChart" })));
+        setTimeout(() => {
+            if (argv.task == "RT") {
+                winston.info("Starting Real Task!")
+                task1(globalCtx);
+            } else if (argv.task == "ST") {
+                //if (argv.task == "ST") {
+                winston.info("Starting Stress Task!")
+                stressTask(globalCtx);
+            } else {
+                winston.info("Starting Dummy Task!")
+                task2(globalCtx);
+            }
+        }, 3000)
+
 
         //start plotting charts
         startCharting();
@@ -173,7 +189,7 @@ amqp.connect('amqp://' + process.env.EDGE_HOST)
 
 //});
 let amqpLatency: any = {}
-amqp.connect('amqp://' + process.env.CLOUD_HOST)
+amqp.connect('amqp://' + process.env.PYTHON_HOST)
     .then((conn) => {
         return conn.createChannel();
     })
@@ -181,13 +197,35 @@ amqp.connect('amqp://' + process.env.CLOUD_HOST)
         amqpLatency.ch = ch;
         let q = 'latency_upd';
         return ch.assertQueue(q, { durable: false });
+        // })
+        // .then((q) => {
+        //     setInterval(() => {
+        //         let json_message_out = {
+        //             latency: myTask.getMovingAverage()[1] || 0
+        //         }
+        //         winston.debug("Sending to latency_upd");
+        //         amqpLatency.ch.sendToQueue('latency_upd', Buffer.from(JSON.stringify(json_message_out)));
+        //     }, 20000)
     })
-    .then((q) => {
-        setInterval(() => {
-            let json_message_out = {
-                latency: myTask.getMovingAverage()[0]
-            }
-            winston.debug("Sending to latency_upd");
-            amqpLatency.ch.sendToQueue('latency_upd', Buffer.from(JSON.stringify(json_message_out)));
-        }, 500)
-    })
+export function startUpdatingLatency() {
+    winston.info("Now starting seding latency update to python server");
+    (function repeat() {
+        let movingAvg = myTask.getMovingAverage();
+
+        let json_message_out = {
+            latency: movingAvg[1]
+        }
+        winston.info("Sending to latency_upd @", (movingAvg[0] == 0) ? 1350 : movingAvg[0]);
+        amqpLatency.ch.sendToQueue('latency_upd', Buffer.from(JSON.stringify(json_message_out)));
+
+        setTimeout(repeat, (movingAvg[0] == 0) ? 1350 : movingAvg[0]);
+    })();
+
+    //  setInterval(() => {
+    //     let json_message_out = {
+    //         latency: myTask.getMovingAverage()[1]
+    //     }
+    //     winston.debug("Sending to latency_upd");
+    //     amqpLatency.ch.sendToQueue('latency_upd', Buffer.from(JSON.stringify(json_message_out)));
+    // }, 1350)
+}

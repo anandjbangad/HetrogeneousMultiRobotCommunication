@@ -2,22 +2,25 @@ import path = require('path');
 import fs = require("fs");
 import * as itf from "../../common/interfaces.d"
 import MA = require('moving-average');
+import SA = require('simple-average');
 import winston = require("winston")
+import { startUpdatingLatency } from "./app"
 
 
 
 let rspMa = MA(5 * 1000); // 5sec
-let latencyMean = MA(10 * 60 * 1000); // 10 minutes
+let latencyMean = SA(); // 10 minutes
 export const taskInit = (global) => {
     this.globalCtx = {};
     this.globalCtx = global;
 }
 
-let delay_bw_task = 3050;
+let delay_bw_task = 1000;
 export function getDelayBwTask(): number {
     return delay_bw_task;
 }
 export function setDelayBwTask(value: number) {
+    winston.info("delay set is ", value)
     delay_bw_task = value;
 }
 export function stressTask(globalCtx) {
@@ -51,17 +54,29 @@ export function task2(globalCtx) {
         setTimeout(repeat, delay_bw_task);
     })();
 }
+let isFirstRspCame: boolean = false;
 export const onRsp = (json_message) => {
+
     //console.log(" [x] Received %s", msg.content.toString());
     let message: itf.e_edge_rsp = JSON.parse(json_message.content);
     // ma.push(Date.now(), Math.random() * 500);
     rspMa.push(Date.now(), Date.now() - message.sentTime);
-    latencyMean.push(Date.now(), Date.now() - message.sentTime);
-    winston.debug('moving average now is', rspMa.movingAverage(), latencyMean.movingAverage());
+    latencyMean.add(Date.now() - message.sentTime);
+    winston.debug("Diff is:", Date.now() - message.sentTime)
+    winston.debug('moving average now is', rspMa.movingAverage(), latencyMean.avg);
     winston.verbose("Device Client:", ++this.globalCtx.rsp_count, "/", this.globalCtx.req_count, message.result);
+    if (isFirstRspCame == false) {
+        isFirstRspCame = true;
+        //call function after first rsp
+        startUpdatingLatency();
+    }
 }
 export const getMovingAverage = () => {
-    return [rspMa.movingAverage(), latencyMean.movingAverage()];
+    if (typeof rspMa.movingAverage() == "undefined") {
+        return [0, latencyMean.avg];
+    } else {
+        return [rspMa.movingAverage(), latencyMean.avg];
+    }
 }
 export function task1(globalCtx) {
     let genObj = walkSync(path.join(__dirname, '../../dataset'));

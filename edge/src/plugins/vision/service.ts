@@ -19,7 +19,7 @@ export function vision(globalCtx) {
     this.add({ role: 'visionRequest', cmd: 'visionTask1' }, function (message, done) {
         //execute vision task locally
         //console.log("visionTask: " + message.msg);
-        console.log("vision Request test............");
+        winston.debug("vision Request test............");
 
         //console.log('CLOUD Server: %s', data['json_data']);
         var base64Image = message.payload;
@@ -58,17 +58,17 @@ export function vision(globalCtx) {
         //done(null, { result: 'result for ' + message.msg.replace(/^\D+/g, '') }) //message.msg is image/text
     });
     this.add({ role: 'visionRequest', cmd: 'stressTask' }, function (message: itf.i_edge_req, done) {
-        winston.error("Stress task entered");
+        winston.silly("Stress task entered");
         let rsp: itf.i_edge_rsp = {
             type: message.type,
-            result: message.payload + ' sE(' + process.env.IP_ADDR + ')',
-            //result: message.payload,
+            //result: message.payload + ' sE(' + process.env.IP_ADDR + ')',
+            result: message.payload,
             cmd_id: message.cmd_id,
             task_id: message.task_id,
             ttl: message.ttl,   //ttl already reduces in offload module
             sentTime: message.sentTime
         }
-        exec("stress-ng --cpu 1 --cpu-ops 900", function (error, stdout, stderr) {
+        exec("stress-ng --cpu 1 --cpu-ops 90", function (error, stdout, stderr) {
             if (error !== null) {
                 console.log('exec error: ' + error);
             } else {
@@ -79,8 +79,8 @@ export function vision(globalCtx) {
     this.add({ role: 'visionRequest', cmd: 'Task3' }, function (message: itf.i_edge_req, done) {
         let rsp: itf.i_edge_rsp = {
             type: message.type,
-            result: message.payload + ' E(' + process.env.IP_ADDR + ')',
-            //result: message.payload,
+            //result: message.payload + ' E(' + process.env.IP_ADDR + ')',
+            result: message.payload,
             cmd_id: message.cmd_id,
             task_id: message.task_id,
             ttl: message.ttl,   //ttl already reduces in offload module

@@ -6,8 +6,11 @@ var app = require('http').createServer(handler),
     exec = require('child_process').exec,
     child;
 
+import winston = require("winston")
 import * as myTask from "../task"
 var qs = require('querystring');
+let myChartServerStartTime: number = 0;
+let isChartStarted = false;
 // declare module "*!text" {
 //     const content: string;
 //     export default content;
@@ -53,6 +56,12 @@ function handler(req, res) {
 export function startCharting() {
     // Listen on port 8000
     app.listen(8001);
+    if (isChartStarted == true) {
+        winston.error("Chart is already started!!!!!!!!")
+    }
+    isChartStarted = true;
+    myChartServerStartTime = Date.now();
+
     // When we open the browser establish a connection to socket.io.
     // Every 5 seconds to send the graph a new value.
 
@@ -65,7 +74,8 @@ export function startCharting() {
                 } else {
                     Promise.all([myTask.getMovingAverage()]).then(values => {
                         // You must send time (X axis) and a temperature value (Y axis)
-                        var date = new Date().getTime();
+                        // var date = new Date().getTime();
+                        var date = Math.floor((new Date().getTime() - myChartServerStartTime) / 1000);
                         var temp = parseFloat(stdout) / 1000;
                         socket.emit('rspAvg', date, {
                             avg5sec: values[0][0],

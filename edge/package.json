@@ -19,6 +19,7 @@
     "rbush": "^2.0.1",
     "rbush-knn": "^2.0.0",
     "seneca": "^3.3.0",
+    "simple-average": "^2.0.0",
     "socket.io": "^2.0.2",
     "tesseract.js": "^1.0.10",
     "uuid": "^3.0.1",

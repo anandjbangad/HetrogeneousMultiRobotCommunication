@@ -1,14 +1,20 @@
 // I create a WebSocket . Put the IP of your Raspberry Pi!
-var socket = io.connect('http://0.0.0.0:8000/');
+//var socket = io.connect('http://0.0.0.0:8000/');
+var socket = io.connect(location.host);
 //        var socket = io.connect('http://10.0.10.239:8000/'); //not working
 
 document.getElementById("downloadAll").addEventListener("click", function () {
-    chart1.exportChartLocal();
+    //chart1.exportChartLocal();
     chart2.exportChartLocal();
-    chart3.exportChartLocal();
+    //chart3.exportChartLocal();
     chart4.exportChartLocal();
     chart5.exportChartLocal();
     chart6.exportChartLocal();
+    chart2.downloadCSV();
+    chart4.downloadCSV();
+    chart5.downloadCSV();
+    chart6.downloadCSV();
+
 }, false);
 
 
@@ -18,6 +24,11 @@ var chart1 = new Highcharts.Chart({
         enabled: false
     },
     exporting: {
+        chartOptions: {
+            title: {
+                text: ''
+            }
+        },
         filename: "chart_edge_cpu_temperature",
         sourceHeight: 500,
         scale: 1,//(default = 2)
@@ -49,7 +60,7 @@ var chart1 = new Highcharts.Chart({
         text: 'CPU Temperature'
     },
     xAxis: {
-        type: 'datetime',
+        //type: 'datetime',
         tickPixelInterval: 150,
         maxZoom: 20 * 1000
     },
@@ -71,6 +82,11 @@ var chart2 = new Highcharts.Chart({
         enabled: false
     },
     exporting: {
+        chartOptions: {
+            title: {
+                text: ''
+            }
+        },
         filename: "chart_edge_cpu_mem_utilization",
         sourceHeight: 500,
         scale: 1,//(default = 2)
@@ -97,9 +113,14 @@ var chart2 = new Highcharts.Chart({
         text: 'CPU & Memory Utilization'
     },
     xAxis: {
-        type: 'datetime',
+        type: 'linear',
+        // "labels": {
+        //     "format": "{value:%M %S}"
+        // },
         tickPixelInterval: 150,
-        maxZoom: 20 * 1000
+        //maxZoom: 20 * 1000,
+        softmin: 0,
+        //tickInterval: 30
     },
     yAxis: {
         minPadding: 0.2,
@@ -111,11 +132,13 @@ var chart2 = new Highcharts.Chart({
     },
     series: [{
         name: 'CPU Utilization',
-        data: []
+        data: [],
+        //pointStart: Date.UTC(1970, 1, 1)
     },
     {
         name: 'Free Memory',
-        data: []
+        data: [],
+        //pointStart: Date.UTC(1970, 1, 1)
     }]
 });
 var chart3 = new Highcharts.Chart({
@@ -123,6 +146,11 @@ var chart3 = new Highcharts.Chart({
         enabled: false
     },
     exporting: {
+        chartOptions: {
+            title: {
+                text: ''
+            }
+        },
         filename: "chart_edge_free_memory",
         sourceHeight: 500,
         scale: 1,//(default = 2)
@@ -149,9 +177,9 @@ var chart3 = new Highcharts.Chart({
         text: 'Free Memory'
     },
     xAxis: {
-        type: 'datetime',
+        //type: 'datetime',
         tickPixelInterval: 150,
-        maxZoom: 20 * 1000
+        //maxZoom: 20 * 1000
     },
     yAxis: {
         minPadding: 0.2,
@@ -171,6 +199,11 @@ var chart4 = new Highcharts.Chart({
         enabled: false
     },
     exporting: {
+        chartOptions: {
+            title: {
+                text: ''
+            }
+        },
         filename: "chart_edge_active_ctx_count",
         sourceHeight: 500,
         scale: 1,//(default = 2)
@@ -199,9 +232,9 @@ var chart4 = new Highcharts.Chart({
         text: 'Number of Active Context'
     },
     xAxis: {
-        type: 'datetime',
+        //type: 'datetime',
         tickPixelInterval: 150,
-        maxZoom: 20 * 1000
+        //maxZoom: 20 * 1000
     },
     yAxis: {
         minPadding: 0.2,
@@ -224,7 +257,12 @@ var chart5 = new Highcharts.Chart({
         enabled: false
     },
     exporting: {
-        filename: "chart_edge_cloud_latency",
+        chartOptions: {
+            title: {
+                text: ''
+            }
+        },
+        filename: "chart_edge_nodes_latency",
         sourceHeight: 500,
         scale: 1,//(default = 2)
         sourceWidth: 1000,
@@ -237,8 +275,11 @@ var chart5 = new Highcharts.Chart({
             load: function () {
                 // Each time you receive a value from the socket, I put it on the graph
                 socket.on('cld_latency', function (time, result) {
-                    chart5.series[0].addPoint([time, result.avg10sec]);
-                    chart5.series[1].addPoint([time, result.avg]);
+                    chart5.series[0].addPoint([time, result.cldavg10sec]);
+                    chart5.series[1].addPoint([time, result.cldavg]);
+                    chart5.series[2].addPoint([time, result.nodeAvg]);
+                    chart5.series[3].addPoint([time, result.neigh1Avg]);
+                    chart5.series[4].addPoint([time, result.neigh2Avg]);
                 });
             }
         }
@@ -247,12 +288,12 @@ var chart5 = new Highcharts.Chart({
         selected: 100
     },
     title: {
-        text: 'Cloud Node Task Response Latency'
+        text: 'Node Task Response Latency'
     },
     xAxis: {
-        type: 'datetime',
+        //type: 'datetime',
         tickPixelInterval: 150,
-        maxZoom: 20 * 1000
+        //maxZoom: 20 * 1000
     },
     yAxis: {
         minPadding: 0.2,
@@ -263,11 +304,23 @@ var chart5 = new Highcharts.Chart({
         }
     },
     series: [{
-        name: 'Latency MM=10sec',
+        name: 'Cloud Latency MM=10sec',
         data: []
     },
     {
-        name: 'Latency Average',
+        name: 'Cloud Latency Average',
+        data: []
+    },
+    {
+        name: 'Node Latency',
+        data: []
+    },
+    {
+        name: 'Neighbor 1 Latency',
+        data: []
+    },
+    {
+        name: 'Neighbor 2 Latency',
         data: []
     }]
 });
@@ -276,6 +329,11 @@ var chart6 = new Highcharts.Chart({
         enabled: false
     },
     exporting: {
+        chartOptions: {
+            title: {
+                text: ''
+            }
+        },
         filename: "chart_edge_offload_jobs_ratio",
         sourceHeight: 500,
         scale: 1,//(default = 2)
@@ -304,9 +362,9 @@ var chart6 = new Highcharts.Chart({
         text: 'Jobs Offload Ratio'
     },
     xAxis: {
-        type: 'datetime',
+        //type: 'datetime',
         tickPixelInterval: 150,
-        maxZoom: 20 * 1000
+        //maxZoom: 20 * 1000
     },
     yAxis: {
         minPadding: 0.2,
